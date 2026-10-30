@@ -88,10 +88,26 @@ async function callJSON({ system, messages, schema, maxTokens = 4000 }) {
 }
 
 // ---------- הקשר על הלומד (כדי שה-AI ידבר ברמה הנכונה) ----------
+// רמה משוערת לפי אוצר המילים והיחידות (A0 עד B2)
+export function levelInfo() {
+  const v = vocabSummary();
+  const ui = currentUnitIndex();
+  const steps = [
+    [60, 'A0', 'absolute beginner (A0-A1)'], [180, 'A1', 'beginner (A1)'], [350, 'A2-', 'elementary (A1-A2)'],
+    [700, 'A2', 'pre-intermediate (A2)'], [1300, 'B1', 'intermediate (B1)'], [2200, 'B1+', 'upper intermediate (B1+)'],
+    [Infinity, 'B2', 'upper intermediate (B2)'],
+  ];
+  let k = steps.findIndex(([n]) => v.seen < n);
+  // לא מדלגים על דקדוק: הרמה לא עולה מעל מה שהיחידות שנלמדו מאפשרות
+  const cap = ui < 12 ? 2 : ui < 16 ? 3 : ui < 24 ? 4 : ui < 30 ? 5 : 6;
+  k = Math.min(k, cap);
+  return { code: steps[k][1], desc: steps[k][2], idx: k };
+}
+
 function learnerProfile() {
   const ui = currentUnitIndex();
   const v = vocabSummary();
-  const level = v.seen < 60 ? 'absolute beginner (A0-A1)' : v.seen < 180 ? 'beginner (A1)' : v.seen < 320 ? 'elementary (A1-A2)' : 'pre-intermediate (A2)';
+  const level = levelInfo().desc;
   const studied = UNITS.slice(0, ui + 1).map((u) => `${u.it} (${u.grammar.match(/<h3>(.*?)<\/h3>/)?.[1] || ''})`).join('; ');
   const words = learnedWordList(250);
   const weak = weakItems(6).map((x) => x.it);
@@ -99,7 +115,7 @@ function learnerProfile() {
 - Native language: Hebrew (Israeli). Explanations must be in natural, simple Hebrew.
 - Level: ${level}. Has met ${v.seen} words/phrases; ${v.known} are well-known.
 - Course units studied so far: ${studied}
-- Words the learner has studied (prefer these; any other word must be very common and guessable): ${words.length ? words.join(', ') : '(none yet - use only the most basic words and very short sentences)'}
+- Words the learner has studied (${levelInfo().idx >= 4 ? 'the learner also knows many common words not listed; use natural intermediate Italian' : 'prefer these; any other word must be very common and guessable'}): ${words.length ? words.join(', ') : '(none yet - use only the most basic words and very short sentences)'}
 - Words the learner struggles with (reuse them naturally when possible): ${weak.join(', ') || '(none)'}`;
 }
 
@@ -134,7 +150,7 @@ ROLE-PLAY: ${scenario.setup}
 ${learnerProfile()}
 
 HOW TO TEACH (based on second-language acquisition research):
-1. Comprehensible input: write at the learner's level. Mostly words from their list; short sentences (beginner: 1-2 short sentences per turn; never more than ~35 words).
+1. Comprehensible input: write at the learner's level (just slightly above it). ${['Beginner: 1-2 very short sentences per turn (max ~25 words).', 'Beginner: 1-2 short sentences (max ~30 words).', 'Elementary: 2-3 sentences (max ~40 words).', 'Pre-intermediate: 2-4 sentences (max ~50 words).', 'Intermediate: natural turns up to ~70 words, varied tenses.', 'Upper-intermediate: natural turns up to ~90 words, idioms and connectors.', 'B2: speak like a friendly native (up to ~100 words), challenge them with follow-up questions that require opinions, reasons and hypotheticals.'][levelInfo().idx]}
 2. Keep them talking: almost always end your turn with ONE simple question or prompt that invites them to answer.
 3. Corrective feedback: if the learner's last message has errors (grammar, gender/article, conjugation, word choice, spelling, wrong-language words), (a) naturally reuse the correct form in your reply (a recast), and (b) list each real error in "corrections" with the learner's wrong fragment, the corrected Italian, and a 1-sentence explanation in Hebrew. Ignore missing accents/capitalization unless they change meaning. Max 3 corrections, most important first. If the learner wrote in Hebrew or English, tell them how to say it in Italian (put it in corrections).
 4. Stay positive and encouraging; never lecture inside "reply". Stay in character.
@@ -173,19 +189,20 @@ const STORY_SCHEMA = {
   },
 };
 
-export async function makeStory(topic) {
+export async function makeStory(topic, length = 'short') {
   const system = `You write short graded readers for a Hebrew-speaking learner of Italian.
 
 ${learnerProfile()}
 
 RULES (research: learners understand and acquire best when ~95-98% of words are already known):
 - Use almost only words from the learner's list plus the most frequent Italian words. Introduce at most 4-6 new words, and repeat each new word at least twice.
-- Length: beginners 6-9 short sentences; more advanced up to 14. Present tense unless the passato prossimo was studied.
+- Length: ${({ short: '6-9 sentences', medium: '12-16 sentences', long: '20-28 sentences (several paragraphs)' })[length] || '8-12 sentences'}. Use only tenses/structures from the units studied so far (the newest unit's grammar should appear several times).
+- From level B1 upward the text may read like a real magazine article, blog post, or dialogue on the topic, with authentic expressions.
 - Natural, engaging, a little humor or a small twist. Real Italian culture details.
 - Each sentence with a natural Hebrew translation.
 - glossary: every distinct word form (lowercase, without punctuation) with its Hebrew meaning in context and its dictionary form.
 - 3 comprehension questions in simple Italian with 3 options each.`;
-  return callJSON({ system, messages: [{ role: 'user', content: `Topic: ${topic}` }], schema: STORY_SCHEMA, maxTokens: 8000 });
+  return callJSON({ system, messages: [{ role: 'user', content: `Topic: ${topic}` }], schema: STORY_SCHEMA, maxTokens: length === 'long' ? 16000 : 10000 });
 }
 
 // ---------- 3. תיקון כתיבה ----------
@@ -232,6 +249,38 @@ ${learnerProfile()}
 Choose the ${n} MOST USEFUL, high-frequency words or short chunks for the topic, that are not in the learner's list. Nouns with definite article (il/la/l'/lo). For each: Hebrew meaning, a short natural example sentence using mostly known words, and its Hebrew translation. The example sentence must contain the word exactly as written in "it" (without the article if needed).`;
   const r = await callJSON({ system, messages: [{ role: 'user', content: `Topic (may be in Hebrew): ${topic}` }], schema: WORDS_SCHEMA, maxTokens: 4000 });
   return r.items || [];
+}
+
+// ---------- 4ב. מילים ליחידה מתקדמת (B1–B2) ----------
+export async function generateUnitWords(unit, existing, n = 30) {
+  const system = `You build the vocabulary for one unit of an Italian course for a Hebrew speaker who is heading to level B2.
+Unit: "${unit.it}" (${unit.level}). Theme and grammar focus: ${unit.gen}
+
+Choose the ${n} MOST USEFUL items for this unit at level ${unit.level}: prioritize high-frequency words (top 5000 Italian lemmas) and common collocations/chunks that a B2 speaker must know; mix nouns, verbs, adjectives, adverbs and 3-6 multi-word expressions. Do NOT include any word from the "already known" list.
+Rules:
+- "it": nouns with definite article (il/la/l'/lo); verbs in the infinitive; expressions as used.
+- "he": precise Hebrew meaning (add a short clarification in parentheses if ambiguous).
+- "ex": a natural, short example sentence (max 14 words) containing the item exactly as written in "it" (article may be omitted in the sentence only if unavoidable), preferably practicing the unit's grammar.
+- "exHe": natural Hebrew translation of the example.`;
+  const r = await callJSON({
+    system,
+    messages: [{ role: 'user', content: `Already known (exclude): ${existing.join(', ')}` }],
+    schema: WORDS_SCHEMA, maxTokens: 12000,
+  });
+  return r.items || [];
+}
+
+// ---------- 4ג. הערכת רמה לפי מה שהלומד כתב/אמר ----------
+const LEVEL_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['level', 'strengths_he', 'focus_he', 'next_steps_he'],
+  properties: {
+    level: { type: 'string', enum: ['A1', 'A2', 'B1', 'B2', 'C1'] },
+    strengths_he: { type: 'string' }, focus_he: { type: 'string' }, next_steps_he: { type: 'string' },
+  },
+};
+export async function assessLevel(samples) {
+  const system = `You are a certified CEFR examiner for Italian. Estimate the learner's productive level (speaking/writing) from their messages below, following CEFR descriptors (range, accuracy, coherence, interaction). Be honest and calibrated, not flattering; if there is too little evidence, estimate conservatively. Answer in Hebrew: strengths (1-2 sentences), the 2-3 most important things to fix to reach the next level, and concrete next steps.`;
+  return callJSON({ system, messages: [{ role: 'user', content: samples.map((x, i) => `${i + 1}. ${x}`).join('\n') }], schema: LEVEL_SCHEMA, maxTokens: 3000 });
 }
 
 // ---------- 5. שאלה חופשית למורה (דקדוק, משמעות) ----------

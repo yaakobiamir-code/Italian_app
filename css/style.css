@@ -287,3 +287,21 @@ body[data-route=practice] { padding-bottom: 20px; }
   .scen-list { grid-template-columns: 1fr; }
   .huge { font-size: 1.6rem; }
 }
+
+/* goals + roadmap */
+.goal-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.goal-pick button { background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
+.goal-pick button small { color: var(--muted); font-size: .8rem; }
+.goal-pick button.on { border-color: var(--green); background: var(--green-soft); }
+.goal-pick button:last-child { grid-column: span 2; }
+.roadmap .track { margin: 8px 0 12px; }
+.roadmap h3 { margin: 0; }
+.lvl { font-size: .85rem; background: var(--gold-soft); padding: 3px 10px; border-radius: 99px; }
+.rm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rm-grid > div { border-radius: 12px; padding: 8px; text-align: center; background: var(--bg); }
+.rm-grid b { display: block; font-size: 1.2rem; }
+.rm-grid small { font-size: .7rem; color: var(--muted); }
+.rm-grid .good b { color: var(--green); }
+.rm-grid .mid b { color: var(--gold); }
+.rm-grid .low b { color: var(--red); }
+.card.ext .chips { margin: 8px 0 0; }

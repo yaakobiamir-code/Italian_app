@@ -7,11 +7,14 @@ const KEY = 'italiano.v1';
 const DEFAULTS = {
   cards: {},          // id -> כרטיס FSRS
   custom: [],         // פריטים שנוספו מהשיחות/סיפורים/AI
+  unitWords: {},      // יחידות B1–B2: id -> [[it, he, ex, exHe], ...] (נוצרו ע"י ה-AI)
+  plan: null,         // { start, days, goal } – תוכנית אינטנסיבית
   stats: {},          // 'YYYY-MM-DD' -> { reviews, correct, newWords, chat, stories, writing, minutes }
   settings: {
     apiKey: '',
     model: 'claude-haiku-5-5',
     newPerDay: 10,
+    dailyGoal: 15,      // דקות ביום
     retention: 0.9,
     rate: 0.95,
     voice: '',
@@ -27,16 +30,49 @@ const DEFAULTS = {
 };
 
 let state = load();
+hydrateUnits();
+
+// מכניסים את המילים שנוצרו ליחידות המתקדמות
+function hydrateUnits() {
+  UNITS.forEach((u) => { if (u.gen) u.items = state.unitWords[u.id] || []; });
+}
 
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULTS);
     const s = JSON.parse(raw);
-    return { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) } };
+    return { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) }, usage: { ...DEFAULTS.usage, ...(s.usage || {}) }, unitWords: s.unitWords || {} };
   } catch {
     return structuredClone(DEFAULTS);
   }
+}
+
+export function addUnitWords(unitId, items) {
+  const have = new Set([...allItems().values()].map((x) => x.it.toLowerCase()));
+  const list = state.unitWords[unitId] || (state.unitWords[unitId] = []);
+  let n = 0;
+  for (const x of items) {
+    const it = (x.it || '').trim();
+    if (!it || !x.he || have.has(it.toLowerCase())) continue;
+    have.add(it.toLowerCase());
+    list.push([it, x.he.trim(), x.ex || '', x.exHe || '']);
+    n++;
+  }
+  hydrateUnits();
+  itemCache = null;
+  save();
+  return n;
+}
+
+// כמה מילים חדשות זמינות עדיין (בלי ליצור עוד)
+export function pendingNewCount() {
+  return nextNewItems(100000).length;
+}
+
+// היחידה המתקדמת הבאה שעוד אין לה מילים (או האחרונה שהתחלנו, להרחבה)
+export function nextUnitToGenerate() {
+  return UNITS.find((u) => u.gen && !(state.unitWords[u.id] || []).length) || null;
 }
 
 export function save() {
@@ -131,7 +167,7 @@ export function unitProgress(u) {
 export function currentUnitIndex() {
   for (let i = 0; i < UNITS.length; i++) {
     const p = unitProgress(UNITS[i]);
-    if (p.seen < p.total) return i;
+    if (p.seen < p.total || p.total === 0) return i;
   }
   return UNITS.length - 1;
 }
@@ -164,14 +200,14 @@ export const dayKey = (t = Date.now()) => {
 
 export function today() {
   const k = dayKey();
-  if (!state.stats[k]) state.stats[k] = { reviews: 0, correct: 0, newWords: 0, chat: 0, stories: 0, writing: 0, seconds: 0 };
+  if (!state.stats[k]) state.stats[k] = { reviews: 0, correct: 0, newWords: 0, chat: 0, stories: 0, writing: 0, seconds: 0, external: 0 };
   return state.stats[k];
 }
 
 export function bump(field, n = 1) { today()[field] = (today()[field] || 0) + n; save(); }
 
 export function activeDay(s) {
-  return s && (s.reviews >= 10 || s.chat >= 4 || s.stories >= 1 || s.writing >= 1);
+  return s && (s.reviews >= 10 || s.chat >= 4 || s.stories >= 1 || s.writing >= 1 || s.external >= 15);
 }
 
 export function streak() {
@@ -195,9 +231,19 @@ export function importJSON(text) {
   const s = JSON.parse(text);
   if (!s || typeof s !== 'object' || !s.cards) throw new Error('bad file');
   const keepKey = state.settings.apiKey;
-  state = { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) } };
+  state = { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) }, unitWords: s.unitWords || {} };
   if (!state.settings.apiKey) state.settings.apiKey = keepKey;
+  hydrateUnits();
   itemCache = null;
   save();
 }
-export function resetAll() { localStorage.removeItem(KEY); state = structuredClone(DEFAULTS); itemCache = null; }
+export function resetAll() { localStorage.removeItem(KEY); state = structuredClone(DEFAULTS); hydrateUnits(); itemCache = null; }
+
+// ---------- תוכנית אינטנסיבית ----------
+export function setPlan(days, goal) { state.plan = { start: Date.now(), days, goal }; save(); }
+export function planStatus() {
+  if (!state.plan) return null;
+  const day = Math.floor((Date.now() - state.plan.start) / 86400000) + 1;
+  const total = Object.values(state.stats).reduce((a, x) => a + (x.seconds || 0), 0) / 3600;
+  return { ...state.plan, day: Math.min(day, state.plan.days), hours: total };
+}

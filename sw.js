@@ -1,9 +1,9 @@
 // Service worker: האפליקציה נטענת ועובדת גם בלי אינטרנט (התרגול היומי). AI דורש חיבור.
-const VERSION = 'italiano-v1';
+const VERSION = 'italiano-v2';
 const FILES = [
   './', 'index.html', 'help.html', 'css/style.css', 'manifest.webmanifest',
   'js/app.js', 'js/data.js', 'js/srs.js', 'js/store.js', 'js/ai.js', 'js/speech.js',
-  'vendor/anthropic-sdk-1.3.0.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
+  'vendor/anthropic-sdk-1.3.0.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'resources.html',
 ];
 
 self.addEventListener('install', (e) => {

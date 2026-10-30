@@ -631,6 +631,261 @@ export const UNITS = [
   },
 ];
 
+
+// ---------- B1–B2: הסבר הדקדוק נכתב ידנית; המילים נוצרות ע"י ה-AI לפי שכיחות ונשמרות במכשיר ----------
+// gen = תיאור הנושא והדקדוק שה-AI משתמש בו כדי לבחור מילים ומשפטי דוגמה
+const ADV = [
+  {
+    id: 'b1', it: "L'imperfetto", he: 'עבר מתמשך – "הייתי עושה"', level: 'B1',
+    gen: 'Childhood, memories, past habits and descriptions. Example sentences in the imperfetto (ero, avevo, facevo, andavo...).',
+    grammar: `
+<h3>imperfetto – עבר של רקע והרגל</h3>
+<p>לתיאור מצב, הרגל או רקע בעבר ("הייתי גר", "נהגתי ללכת", "היה חם"). הנטייה קלה וכמעט בלי חריגים:</p>
+<table>
+<tr><td lang="it">parl<b>avo</b></td><td lang="it">parl<b>avi</b></td><td lang="it">parl<b>ava</b></td></tr>
+<tr><td lang="it">parl<b>avamo</b></td><td lang="it">parl<b>avate</b></td><td lang="it">parl<b>avano</b></td></tr>
+</table>
+<p>-ere: <i lang="it">prendevo</i>, -ire: <i lang="it">dormivo</i>. חריג חשוב: <i lang="it">essere → ero, eri, era, eravamo, eravate, erano</i>. גם <i lang="it">fare → facevo</i>, <i lang="it">dire → dicevo</i>, <i lang="it">bere → bevevo</i>.</p>
+<p>💡 מילות סימן: <i lang="it">da bambino, di solito, sempre, ogni estate, mentre</i>.</p>`,
+  },
+  {
+    id: 'b2', it: 'Passato prossimo o imperfetto?', he: 'לספר סיפור בעבר', level: 'B1',
+    gen: 'Telling stories and anecdotes: events, accidents, travel stories, surprises. Sentences contrasting passato prossimo (event) and imperfetto (background).',
+    grammar: `
+<h3>אירוע מול רקע</h3>
+<p>בעברית יש עבר אחד. באיטלקית בוחרים לפי התפקיד בסיפור:</p>
+<ul>
+<li><b>passato prossimo</b> – פעולה שקרתה והסתיימה, "מה קרה": <i lang="it">Ho incontrato Marco.</i></li>
+<li><b>imperfetto</b> – הרקע, התיאור, מה היה בתהליך: <i lang="it">Pioveva e io aspettavo l'autobus.</i></li>
+</ul>
+<p>יחד: <i lang="it">Mentre <b>camminavo</b>, <b>ho visto</b> un gatto.</i> = בזמן שהלכתי (רקע), ראיתי חתול (אירוע).</p>
+<p>💡 שאלו: "אפשר לצלם את זה כרגע אחד?" → passato prossimo. "זו תפאורה / הרגל?" → imperfetto.</p>
+<p>פעלים שמשנים משמעות: <i lang="it">conoscevo</i> (הכרתי, כבר) / <i lang="it">ho conosciuto</i> (פגשתי לראשונה); <i lang="it">sapevo</i> (ידעתי) / <i lang="it">ho saputo</i> (גיליתי).</p>`,
+  },
+  {
+    id: 'b3', it: 'Ci e ne', he: 'המילים הקטנות ci ו-ne', level: 'B1',
+    gen: 'Quantities, shopping, places and very common idiomatic verbs with ci and ne (volerci, metterci, farcela, andarsene, entrarci, pensarci, averne abbastanza).',
+    grammar: `
+<h3>ci – "לשם / בזה"</h3>
+<p>מחליף מקום או "על זה/בזה": <i lang="it">Vai a Roma? – Sì, <b>ci</b> vado domani.</i> (אני נוסע לשם). <i lang="it">Ci penso io</i> = אני אטפל בזה.</p>
+<h3>ne – "מזה / מהם"</h3>
+<p>מחליף כמות או "על/מ-": <i lang="it">Quante mele vuoi? – <b>Ne</b> voglio tre.</i> (אני רוצה שלושה מהם). <i lang="it">Che ne pensi?</i> = מה אתה חושב על זה?</p>
+<h3>ביטויים שחייבים להכיר</h3>
+<p><i lang="it">ci vuole / ci vogliono</i> (צריך, לוקח זמן), <i lang="it">ci metto</i> (לוקח לי), <i lang="it">ce la faccio</i> (אני מסתדר/מצליח), <i lang="it">me ne vado</i> (אני הולך מכאן), <i lang="it">non c'entra</i> (זה לא קשור).</p>`,
+  },
+  {
+    id: 'b4', it: 'Pronomi indiretti e combinati', he: 'לו, לה, לי – ו"אותו לו"', level: 'B1',
+    gen: 'Gifts, favors, lending, sending, explaining, phone and messages. Sentences with indirect pronouns (mi, ti, gli, le, ci, vi) and combined pronouns (me lo, te la, glielo, ce ne).',
+    grammar: `
+<h3>כינויי מושא עקיף – "לי, לך, לו"</h3>
+<p><i lang="it">mi, ti, gli</i> (לו), <i lang="it">le</i> (לה / לך-רשמי), <i lang="it">ci, vi, gli</i> (להם). באים לפני הפועל: <i lang="it">Gli scrivo domani.</i> = אכתוב לו מחר.</p>
+<h3>צירוף: "אותו לו"</h3>
+<p>כשיש שניים, העקיף ראשון ומשנה צורה: <i lang="it">mi+lo → me lo</i>, <i lang="it">ti+la → te la</i>, <i lang="it">gli/le+lo → glielo</i>.</p>
+<p><i lang="it">Me lo dai?</i> = תיתן לי אותו? · <i lang="it">Glielo spiego io.</i> = אני אסביר לו את זה.</p>
+<p>💡 בשם פועל ובציווי הכינוי נדבק לסוף: <i lang="it">Dammelo!</i> (תן לי אותו), <i lang="it">Posso dirtelo.</i></p>`,
+  },
+  {
+    id: 'b5', it: 'Il condizionale', he: 'הייתי… – בקשות, משאלות ועצות', level: 'B1',
+    gen: 'Wishes, polite requests, advice, work and career, hypotheses. Sentences in the conditional (vorrei, potrei, dovresti, sarebbe, mi piacerebbe, avrei voluto).',
+    grammar: `
+<h3>condizionale presente</h3>
+<p>אותו גזע כמו העתיד, עם סיומות: <b>-ei, -esti, -ebbe, -emmo, -este, -ebbero</b>.</p>
+<p><i lang="it">parlare → parlerei</i>, <i lang="it">essere → sarei</i>, <i lang="it">avere → avrei</i>, <i lang="it">potere → potrei</i>, <i lang="it">dovere → dovrei</i>, <i lang="it">volere → vorrei</i>, <i lang="it">fare → farei</i>, <i lang="it">andare → andrei</i>.</p>
+<ul>
+<li>בקשה מנומסת: <i lang="it">Potrebbe aiutarmi?</i></li>
+<li>עצה: <i lang="it">Dovresti riposarti.</i> = כדאי לך לנוח.</li>
+<li>משאלה: <i lang="it">Mi piacerebbe vivere a Roma.</i></li>
+</ul>
+<p>עבר ("הייתי רוצה אז"): <i lang="it">avrei voluto, sarei andato</i>.</p>`,
+  },
+  {
+    id: 'b6', it: "L'imperativo", he: 'ציווי – הוראות ומתכונים', level: 'B1',
+    gen: 'Instructions, recipes, cooking verbs, home, directions, advice. Sentences in the imperative (tu, Lei, noi, voi), including negative imperative.',
+    grammar: `
+<h3>ציווי</h3>
+<table>
+<tr><th></th><th lang="it">-are</th><th lang="it">-ere / -ire</th></tr>
+<tr><td>אתה</td><td lang="it">parla!</td><td lang="it">prendi! dormi!</td></tr>
+<tr><td>אתם</td><td lang="it">parlate!</td><td lang="it">prendete! dormite!</td></tr>
+<tr><td>Lei (רשמי)</td><td lang="it">parli!</td><td lang="it">prenda! dorma!</td></tr>
+</table>
+<p><b>שלילה ל"אתה"</b> = non + שם פועל: <i lang="it">Non parlare!</i> (אל תדבר).</p>
+<p>חריגים קצרים: <i lang="it">va', fa', da', di', sta'</i> → <i lang="it">Dimmi!</i> (תגיד לי), <i lang="it">Fammi vedere</i> (תראה לי).</p>
+<p>💡 כינויים נדבקים בסוף: <i lang="it">Mangialo! Siediti!</i> אבל ברשמי לפני: <i lang="it">Si sieda.</i></p>`,
+  },
+  {
+    id: 'b7', it: 'Comparativi e relativi', he: 'השוואות ו"ש-" (che, cui)', level: 'B1',
+    gen: 'Describing and comparing people, cities, products, personality and appearance. Sentences with più/meno... di/che, il più, -issimo, migliore/peggiore, and relative pronouns che, cui, quello che.',
+    grammar: `
+<h3>השוואות</h3>
+<p><i lang="it">più … di</i> / <i lang="it">meno … di</i>: <i lang="it">Roma è più grande di Firenze.</i> בהשוואת שני תארים/פעלים: <i lang="it">che</i>: <i lang="it">più bello che utile</i>.</p>
+<p>הכי: <i lang="it">il più bello</i>. מאוד: <i lang="it">bellissimo</i>. חריגים: <i lang="it">migliore</i> (טוב יותר), <i lang="it">peggiore</i>, <i lang="it">meglio / peggio</i> (תואר הפועל).</p>
+<h3>"ש-" באיטלקית</h3>
+<ul>
+<li><i lang="it">che</i> – הרגיל: <i lang="it">il libro che leggo</i>.</li>
+<li><i lang="it">cui</i> – אחרי מילת יחס: <i lang="it">la persona con cui parlo</i> (האדם שאני מדבר איתו), <i lang="it">il motivo per cui</i> (הסיבה ש…).</li>
+<li><i lang="it">quello che / ciò che</i> = מה ש…: <i lang="it">Fai quello che vuoi.</i></li>
+</ul>
+<p>💡 בעברית "ש" אחד + "איתו/בו" בסוף. באיטלקית מילת היחס עוברת לפני <i lang="it">cui</i>.</p>`,
+  },
+  {
+    id: 'b8', it: 'Trapassato e futuro anteriore', he: 'עבר שלפני העבר, ועתיד מושלם', level: 'B1',
+    gen: 'Plans, deadlines, sequences of events, regrets, travel and work timelines. Sentences with trapassato prossimo (avevo già fatto) and futuro anteriore (quando avrò finito), plus dopo che, appena, prima di.',
+    grammar: `
+<h3>trapassato prossimo – "כבר עשיתי (לפני כן)"</h3>
+<p>עזר ב-imperfetto + בינוני: <i lang="it">Quando sono arrivato, il film <b>era già cominciato</b>.</i> = כשהגעתי, הסרט כבר התחיל.</p>
+<h3>futuro anteriore – "אחרי שאסיים"</h3>
+<p>עזר בעתיד + בינוני: <i lang="it">Ti chiamo quando <b>avrò finito</b>.</i></p>
+<p>💡 שימוש נפוץ מאוד – ניחוש: <i lang="it">Sarà stanco.</i> = הוא כנראה עייף. <i lang="it">Avrà dimenticato.</i> = הוא כנראה שכח.</p>
+<p>מילים מקשרות: <i lang="it">prima di + שם פועל, dopo aver + בינוני, appena</i> (ברגע ש…).</p>`,
+  },
+  {
+    id: 'b9', it: 'Il congiuntivo presente', he: 'קוניונקטיבו – דעות, רגשות וספקות', level: 'B2',
+    gen: 'Opinions, feelings, doubts, hopes, debate. Sentences with penso che, credo che, spero che, è importante che, bisogna che, sebbene, prima che + congiuntivo presente.',
+    grammar: `
+<h3>מתי?</h3>
+<p>אחרי <i lang="it">che</i> כשהמשפט הראשי מביע <b>דעה, רצון, רגש, ספק או צורך</b> – ולא עובדה:</p>
+<p><i lang="it">Penso che <b>sia</b> vero.</i> (אני חושב שזה נכון) · <i lang="it">Spero che tu <b>stia</b> bene.</i> · <i lang="it">È importante che <b>veniate</b>.</i></p>
+<p>אבל עובדה = רגיל: <i lang="it">So che <b>è</b> vero.</i></p>
+<h3>צורות</h3>
+<p>-are: <i lang="it">parli, parli, parli, parliamo, parliate, parlino</i>. -ere/-ire: <i lang="it">prenda, dorma</i>… (שלוש היחיד זהות!).</p>
+<p>חריגים חובה: <i lang="it">essere → sia, avere → abbia, fare → faccia, andare → vada, potere → possa, volere → voglia, dovere → debba, sapere → sappia, venire → venga, stare → stia, dare → dia</i>.</p>
+<p>💡 כשהנושא זהה – שם פועל: <i lang="it">Penso di avere ragione.</i></p>`,
+  },
+  {
+    id: 'b10', it: 'Il periodo ipotetico', he: '"אילו הייתי…" – משפטי תנאי', level: 'B2',
+    gen: 'Hypotheticals, dreams, regrets, what-if scenarios, life choices. Sentences with se + congiuntivo imperfetto + condizionale (se avessi tempo, viaggerei) and se + congiuntivo trapassato + condizionale passato.',
+    grammar: `
+<h3>שלושה סוגי "אם"</h3>
+<ol>
+<li><b>מציאותי</b>: <i lang="it">Se piove, resto a casa.</i></li>
+<li><b>דמיוני (הווה)</b>: se + congiuntivo imperfetto, condizionale: <i lang="it">Se <b>avessi</b> tempo, <b>viaggerei</b>.</i> = אילו היה לי זמן, הייתי מטייל.</li>
+<li><b>בלתי אפשרי (עבר)</b>: <i lang="it">Se <b>avessi saputo</b>, <b>sarei venuto</b>.</i> = אילו ידעתי, הייתי בא.</li>
+</ol>
+<h3>congiuntivo imperfetto</h3>
+<p><i lang="it">parlassi, parlassi, parlasse, parlassimo, parlaste, parlassero</i>. חריגים: <i lang="it">essere → fossi, fare → facessi, dare → dessi, stare → stessi, dire → dicessi</i>.</p>
+<p>💡 גם אחרי <i lang="it">vorrei che, magari, come se</i>: <i lang="it">Magari fosse vero!</i> = הלוואי שזה היה נכון!</p>`,
+  },
+  {
+    id: 'b11', it: 'Si impersonale e passivo', he: '"נוהגים ל…" וסביל – חדשות וחברה', level: 'B2',
+    gen: 'News, society, rules, public life, statistics. Sentences with si impersonale/passivante (si dice, si vendono), passive with essere/venire, and andare + participio (va fatto).',
+    grammar: `
+<h3>si – "אומרים", "עושים פה"</h3>
+<p>כמו "אומרים ש…" בעברית בלי נושא: <i lang="it">Si dice che…</i>, <i lang="it">In Italia si mangia bene.</i> עם שם עצם ברבים – הפועל ברבים: <i lang="it">Si vendono case.</i></p>
+<h3>סביל</h3>
+<p><i lang="it">essere / venire</i> + בינוני: <i lang="it">La legge è stata approvata.</i> · <i lang="it">Il museo viene visitato da milioni.</i></p>
+<p><i lang="it">andare</i> + בינוני = "צריך להיעשות": <i lang="it">Il modulo va compilato.</i> = יש למלא את הטופס.</p>
+<p>💡 בחדשות ובטקסטים רשמיים המבנים האלה בכל משפט – שווה לזהות אותם.</p>`,
+  },
+  {
+    id: 'b12', it: 'Gerundio e infinito', he: 'בזמן ש… – stare + gerundio', level: 'B2',
+    gen: 'Work, technology, processes, multitasking, daily actions in progress. Sentences with stare + gerundio, gerundio as "by/while doing", and verbs + a/di + infinitive (cominciare a, smettere di, cercare di, riuscire a).',
+    grammar: `
+<h3>"עכשיו בדיוק" – stare + gerundio</h3>
+<p><i lang="it">-are → -ando</i>, <i lang="it">-ere/-ire → -endo</i>: <i lang="it">Sto lavorando.</i> = אני (באמצע) עובד. <i lang="it">Stavo uscendo.</i> = בדיוק יצאתי.</p>
+<h3>gerundio לבד = "תוך כדי / על ידי"</h3>
+<p><i lang="it">Ho imparato l'italiano <b>guardando</b> film.</i> = למדתי איטלקית על ידי צפייה בסרטים.</p>
+<h3>פועל + a / di + שם פועל</h3>
+<p>צריך ללמוד יחד עם מילת היחס: <i lang="it">cominciare a, riuscire a, imparare a</i> · <i lang="it">cercare di, smettere di, decidere di, finire di</i>.</p>`,
+  },
+  {
+    id: 'b13', it: 'Il discorso indiretto', he: 'דיבור עקיף – "הוא אמר ש…"', level: 'B2',
+    gen: 'Reporting conversations, media, gossip, work meetings, messages. Sentences with dire che, chiedere se, raccontare che, rispondere che and tense shifts (ha detto che sarebbe venuto).',
+    grammar: `
+<h3>להעביר מה מישהו אמר</h3>
+<p>בעברית שומרים על הזמן ("הוא אמר שהוא יבוא"). באיטלקית, אחרי פועל בעבר, הזמנים "זזים אחורה":</p>
+<ul>
+<li>הווה → imperfetto: <i lang="it">"Sono stanco" → Ha detto che <b>era</b> stanco.</i></li>
+<li>עבר → trapassato: <i lang="it">"Ho finito" → Ha detto che <b>aveva finito</b>.</i></li>
+<li>עתיד → condizionale passato: <i lang="it">"Verrò" → Ha detto che <b>sarebbe venuto</b>.</i></li>
+</ul>
+<p>שאלות: <i lang="it">Mi ha chiesto <b>se</b> volevo venire.</i> גם הכינויים והמקום משתנים: <i lang="it">qui → lì, oggi → quel giorno, domani → il giorno dopo</i>.</p>`,
+  },
+  {
+    id: 'b14', it: 'Connettivi e argomentazione', he: 'לנמק ולהתווכח – מילות קישור', level: 'B2',
+    gen: 'Argumentation and debate: environment, politics, education, pros and cons. Advanced connectors (tuttavia, invece, inoltre, infatti, nonostante, sebbene, affinché, purché, a meno che, dato che, siccome, eppure, anzi, cioè, insomma).',
+    grammar: `
+<h3>מה שמבדיל B2</h3>
+<p>ב-B2 מצופה להסביר דעה, לתת יתרונות וחסרונות ולקשר בין רעיונות. מילות הקישור הן המפתח:</p>
+<table>
+<tr><td>הוספה</td><td lang="it">inoltre, anche, per di più</td></tr>
+<tr><td>ניגוד</td><td lang="it">però, tuttavia, invece, eppure, anzi</td></tr>
+<tr><td>סיבה</td><td lang="it">perché, dato che, siccome, poiché</td></tr>
+<tr><td>תוצאה</td><td lang="it">quindi, perciò, di conseguenza</td></tr>
+<tr><td>הבהרה / סיכום</td><td lang="it">infatti, cioè, insomma, in conclusione</td></tr>
+</table>
+<p>⚠️ אחרי <i lang="it">sebbene, benché, nonostante, affinché, purché, a meno che, prima che</i> בא <b>congiuntivo</b>: <i lang="it">Sebbene sia tardi, resto.</i></p>`,
+  },
+  {
+    id: 'b15', it: 'Espressioni idiomatiche', he: 'ניבים ושפה מדוברת', level: 'B2',
+    gen: 'Very common Italian idioms and colloquial spoken expressions that natives use daily (in bocca al lupo, non vedo l\'ora, avere la testa fra le nuvole, costare un occhio della testa, meno male, figurati, mi raccomando, che ne so, ci mancherebbe, fare una figuraccia). Example dialogues lines.',
+    grammar: `
+<h3>לדבר כמו איטלקי</h3>
+<p>שפה מדוברת מלאה בביטויים שלא מבינים מילה-מילה. כמה מהנפוצים ביותר:</p>
+<ul>
+<li><i lang="it">Figurati!</i> – מה פתאום / אין בעד מה.</li>
+<li><i lang="it">Meno male!</i> – איזה מזל / טוב שכך.</li>
+<li><i lang="it">Mi raccomando!</i> – תשמור על עצמך / בבקשה אל תשכח.</li>
+<li><i lang="it">Costa un occhio della testa.</i> – עולה הון ("עין מהראש").</li>
+<li><i lang="it">Che figuraccia!</i> – איזה פדיחה!</li>
+</ul>
+<p>💡 גם מילות הדיבור: <i lang="it">tipo, cioè, praticamente, boh, mah, beh</i> – תשמעו אותן בכל פודקאסט.</p>`,
+  },
+  {
+    id: 'b16', it: 'Lavoro ed economia', he: 'עבודה, כסף וכלכלה', level: 'B2',
+    gen: 'Work, office, job interviews, career, salary, business, banking, economy, contracts. High-frequency B1-B2 vocabulary.',
+    grammar: `<h3>בניית מילים: סיומות שימושיות</h3>
+<p>אוצר מילים של B2 גדל מהר כשמכירים סיומות:</p>
+<ul>
+<li><b>-zione</b> = ‎-tion: <i lang="it">organizzazione, situazione, informazione</i> (תמיד נקבה).</li>
+<li><b>-tà</b> = ‎-ty: <i lang="it">università, possibilità, città</i> (נקבה, לא משתנה ברבים).</li>
+<li><b>-mente</b> = ‎-ly (תואר הפועל): <i lang="it">veramente, facilmente</i>.</li>
+<li><b>-ista</b> = בעל מקצוע/נטייה: <i lang="it">giornalista, dentista</i>.</li>
+<li><b>-bile</b> = ‎-able: <i lang="it">possibile, responsabile</i>.</li>
+</ul>
+<p>💡 מי שיודע אנגלית מכיר כבר מאות מילים איטלקיות דרך הסיומות האלה.</p>`,
+  },
+  {
+    id: 'b17', it: 'Salute e corpo', he: 'בריאות, גוף ורגשות', level: 'B2',
+    gen: 'Health, body, doctor visits, symptoms, emotions, relationships, psychology. High-frequency B1-B2 vocabulary.',
+    grammar: `<h3>"חברים כוזבים" – מילים שמטעות</h3>
+<p>מילים שנראות מוכרות מאנגלית אבל אומרות משהו אחר:</p>
+<ul>
+<li><i lang="it">camera</i> = חדר (לא מצלמה).</li>
+<li><i lang="it">morbido</i> = רך.</li>
+<li><i lang="it">parenti</i> = קרובי משפחה (הורים = <i lang="it">genitori</i>).</li>
+<li><i lang="it">eventualmente</i> = אם יהיה צורך (לא "בסופו של דבר" = <i lang="it">alla fine</i>).</li>
+<li><i lang="it">fattoria</i> = חווה (מפעל = <i lang="it">fabbrica</i>).</li>
+<li><i lang="it">annoiato</i> = משועמם (מעוצבן = <i lang="it">infastidito</i>).</li>
+</ul>`,
+  },
+  {
+    id: 'b18', it: 'Cultura, arte e storia', he: 'תרבות, אמנות והיסטוריה', level: 'B2',
+    gen: 'Culture, art, history, cinema, music, literature, traditions, Italian regions. High-frequency B1-B2 vocabulary.',
+    grammar: `<h3>passato remoto – להכיר, לא בהכרח להשתמש</h3>
+<p>בספרים, בהיסטוריה ובדרום איטליה תפגשו עבר נוסף: <i lang="it">fu</i> (היה), <i lang="it">nacque</i> (נולד), <i lang="it">morì</i> (מת), <i lang="it">scrisse</i> (כתב), <i lang="it">ebbe</i> (היה לו).</p>
+<p><i lang="it">Dante nacque a Firenze nel 1265.</i></p>
+<p>💡 ב-B2 מספיק לזהות אותו בקריאה. בדיבור ממשיכים עם passato prossimo.</p>`,
+  },
+  {
+    id: 'b19', it: 'Tecnologia e media', he: 'טכנולוגיה, אינטרנט ותקשורת', level: 'B2',
+    gen: 'Technology, internet, social media, smartphones, news media, science. High-frequency B1-B2 vocabulary.',
+    grammar: `<h3>אנגלית באיטלקית</h3>
+<p>בטכנולוגיה איטלקים משתמשים בהרבה מילים מאנגלית – אבל עם מין דקדוקי, ובדרך כלל זכר: <i lang="it">il computer, il link, la email, il software</i>. ברבים הן לא משתנות: <i lang="it">i computer</i>.</p>
+<p>פעלים "מאוטלקים": <i lang="it">postare, chattare, scrollare, scaricare</i> (להוריד), <i lang="it">caricare</i> (להעלות).</p>`,
+  },
+  {
+    id: 'b20', it: 'Società e ambiente', he: 'חברה, סביבה ואקטואליה', level: 'B2',
+    gen: 'Society, environment, climate, politics, education, immigration, city life, current affairs. High-frequency B1-B2 vocabulary for discussing news.',
+    grammar: `<h3>להביע דעה ברמת B2</h3>
+<p>פתיחות: <i lang="it">Secondo me…, Dal mio punto di vista…, Mi sembra che + congiuntivo, Sono convinto che…</i></p>
+<p>הסכמה/התנגדות: <i lang="it">Sono d'accordo, Hai ragione, però…, Non sono del tutto d'accordo, Dipende.</i></p>
+<p>💡 תרגול מומלץ: לבחור כותרת חדשות, לסכם אותה ב-3 משפטים ולהוסיף דעה – בכתיבה היומית או בשיחה "דיון ודעות".</p>`,
+  },
+];
+ADV.forEach((u) => { u.items = []; });
+UNITS.push(...ADV);
+
 // תרחישי שיחה עם המורה – משימות אמיתיות (Task-Based Language Teaching)
 export const SCENARIOS = [
   { id: 'free', icon: '💬', he: 'שיחה חופשית', it: 'Chiacchierata', minUnit: 0,
@@ -655,10 +910,24 @@ export const SCENARIOS = [
     setup: 'You are Giulia, a friend. Ask the learner what they did last weekend and on their last trip. Encourage use of the past tense (passato prossimo).' },
   { id: 'plans', icon: '✈️', he: 'לתכנן טיול לאיטליה', it: 'Progetti di viaggio', minUnit: 16,
     setup: 'You are Giulia, an Italian friend helping the learner plan a trip to Italy: where, when, what to see and eat.' },
+  { id: 'interview', icon: '💼', he: 'ראיון עבודה', it: 'Colloquio di lavoro', minUnit: 21,
+    setup: 'You are an HR manager at a company in Milan interviewing the learner for a job in their field. Ask about experience, strengths, why Italy, and hypothetical situations.' },
+  { id: 'memories', icon: '🧒', he: 'זיכרונות ילדות', it: 'Quando ero piccolo', minUnit: 17,
+    setup: 'You are Giulia, a friend. Ask the learner about their childhood, school, past holidays and how life was different. Encourage imperfetto vs passato prossimo.' },
+  { id: 'debate', icon: '⚖️', he: 'דיון ודעות', it: 'Dibattito', minUnit: 25,
+    setup: 'You are Marco, a journalist who loves friendly debates. Pick a current, non-sensitive topic (remote work, tourism in Venice, social media, cities vs countryside). Ask the learner\'s opinion, push back politely, ask them to justify with reasons and examples. Encourage connectors and the congiuntivo.' },
+  { id: 'whatif', icon: '🔮', he: 'מה היה קורה אילו…', it: 'E se…?', minUnit: 26,
+    setup: 'You are Giulia. Play a "what if" game: ask imaginative hypothetical questions (if you won the lottery, if you lived in Italy, if you could change one thing...). Encourage periodo ipotetico.' },
+  { id: 'complaint', icon: '😤', he: 'תלונה ופתרון בעיה', it: 'Un reclamo', minUnit: 21,
+    setup: 'You are a customer service agent. The learner has a problem (lost luggage, wrong hotel booking, broken product). Handle the complaint realistically, ask for details, propose solutions, negotiate.' },
+  { id: 'news', icon: '📰', he: 'לספר על חדשות', it: 'Le notizie', minUnit: 27,
+    setup: 'You are a friend chatting about the news. Ask the learner to tell you about something they read or heard recently, ask follow-up questions, and share related facts about Italy. Encourage discorso indiretto and si impersonale.' },
 ];
 
 export const STORY_TOPICS = [
   'יום ראשון בשוק', 'פגישה בבית קפה ברומא', 'נסיעה ברכבת לפירנצה', 'ארוחת ערב משפחתית',
   'חתול שאבד בוונציה', 'יום בחוף בסיציליה', 'הזמנת פיצה בנאפולי', 'בוקר עמוס בעבודה',
   'טיול בהרי הדולומיטים', 'מתכון של סבתא', 'כדורגל ביום ראשון', 'חנות ספרים קטנה',
+  'ראיון עבודה מוזר במילאנו', 'תעלומה בכפר בטוסקנה', 'כתבה: עבודה מרחוק באיטליה', 'ויכוח משפחתי על חופשה',
+  'היסטוריה: איך נולדה הפיצה', 'יום בחייו של שף ברומא', 'חדשות: תיירות בוונציה', 'אילו הייתי גר בנאפולי',
 ];

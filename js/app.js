@@ -142,20 +142,37 @@ function renderOnboarding() {
       <li><b>🗣️ לדבר מהיום הראשון</b> – שיחות עם מורה AI שמתקנת בעדינות ומסבירה בעברית.</li>
       <li><b>📅 קצת כל יום</b> – 15–20 דקות ביום עדיפות על שעתיים פעם בשבוע.</li>
     </ul>
-    <h3>כמה מילים חדשות ביום?</h3>
-    <div class="seg" id="npd">
-      ${[5, 10, 15, 20].map((n) => `<button data-n="${n}" class="${set().newPerDay === n ? 'on' : ''}">${n}</button>`).join('')}
+    <h3>כמה זמן ביום תלמדו?</h3>
+    <div class="goal-pick" id="gp">
+      ${GOALS.map((g, i) => `<button data-i="${i}" class="${i === 1 ? 'on' : ''}"><b>${g.label}</b><small>${g.sub}</small></button>`).join('')}
     </div>
-    <p class="muted small">10 ביום = כ-300 מילים בחודש. אפשר לשנות אחר כך.</p>
+    <p class="muted small" id="gpnote"></p>
     <button class="btn big" id="start">בואו נתחיל!</button>
   </section>`;
-  $('#npd').onclick = (e) => {
+  let gi = 1;
+  const note = () => { const g = GOALS[gi]; $('#gpnote').textContent = `${g.npd} מילים חדשות ביום · ${g.note}`; };
+  note();
+  $('#gp').onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return;
-    store.setSetting('newPerDay', +b.dataset.n);
-    $('#npd').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    gi = +b.dataset.i; note();
+    $('#gp').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
   };
-  $('#start').onclick = () => { store.S().onboarded = true; store.save(); go('#today'); };
+  $('#start').onclick = () => {
+    const g = GOALS[gi];
+    store.setSetting('newPerDay', g.npd); store.setSetting('dailyGoal', g.min);
+    if (g.plan) store.setPlan(90, 'B2');
+    store.S().onboarded = true; store.save(); go('#today');
+  };
 }
+
+// יעדי זמן יומיים. הקצב נגזר מההערכה: B2 ≈ 500–650 שעות לימוד מאפס (Cambridge / FSI)
+const GOALS = [
+  { min: 15, npd: 10, label: '15 דק\'', sub: 'רגוע', note: 'בערך A2 אחרי 3 חודשים' },
+  { min: 30, npd: 15, label: '30 דק\'', sub: 'קבוע', note: 'בערך A2+ אחרי 3 חודשים' },
+  { min: 60, npd: 25, label: 'שעה', sub: 'רציני', note: 'בערך B1 אחרי 3 חודשים', plan: true },
+  { min: 150, npd: 35, label: '2–3 שעות', sub: 'אינטנסיבי', note: 'B1+ אחרי 3 חודשים, B2 תוך 5–6', plan: true },
+  { min: 360, npd: 45, label: '6+ שעות', sub: 'טבילה מלאה', note: 'הקצב שנדרש ל-B2 בתוך 3 חודשים', plan: true },
+];
 
 // ================= היום =================
 const TIPS = [
@@ -182,15 +199,12 @@ routes.today = {
     const ui = store.currentUnitIndex();
     const unit = UNITS[ui];
     const mins = Math.round((t.seconds || 0) / 60);
-    const goal = 15;
+    const goal = set().dailyGoal || 15;
     const pct = Math.min(100, Math.round((mins / goal) * 100));
     const scen = SCENARIOS.filter((s) => s.minUnit <= ui + 1);
     const nextScen = scen[(new Date().getDate()) % scen.length] || SCENARIOS[0];
-    const tasks = [
-      { done: due === 0 && (newAvail === 0 || t.newWords >= set().newPerDay) && t.reviews > 0, label: 'חזרה ומילים חדשות', href: '#practice', icon: '🧠' },
-      { done: t.stories >= 1, label: 'סיפור: קריאה והאזנה', href: '#stories', icon: '🎧' },
-      { done: t.chat >= 6, label: 'שיחה עם המורה', href: `#chat/${nextScen.id}`, icon: '🗣️' },
-    ];
+    const tasks = dailyTasks(t, due, newAvail, nextScen, unit, goal);
+    autoGenerate();
     view().innerHTML = `
     <header class="top">
       <div>
@@ -215,10 +229,12 @@ routes.today = {
       <span class="go">${due + newAvail ? 'התחל ←' : 'תרגול נוסף ←'}</span>
     </a>
 
-    <h3 class="sec">התוכנית להיום</h3>
+    <h3 class="sec">התוכנית להיום <small class="muted">(${goal >= 60 ? Math.round(goal / 60 * 10) / 10 + ' שעות' : goal + ' דק\''})</small></h3>
     <div class="tasks">
       ${tasks.map((k) => `<a class="task ${k.done ? 'done' : ''}" href="${k.href}"><span>${k.icon}</span><b>${k.label}</b><i>${k.done ? '✓' : '›'}</i></a>`).join('')}
     </div>
+    ${roadmapCard()}
+    ${goal >= 30 ? externalCard(t) : ''}
 
     <div class="grid2">
       <a class="card mini" href="#chat/${nextScen.id}"><span class="emoji">${nextScen.icon}</span><b>${esc(nextScen.he)}</b><small>שיחה מומלצת</small></a>
@@ -233,6 +249,79 @@ routes.today = {
     `;
   },
 };
+
+function dailyTasks(t, due, newAvail, nextScen, unit, goal) {
+  const k = goal >= 300 ? 3 : goal >= 120 ? 2 : 1;
+  const tasks = [
+    { done: due === 0 && (newAvail === 0 || t.newWords >= set().newPerDay) && t.reviews > 0, label: 'כל החזרות + המילים החדשות', href: '#practice', icon: '🧠' },
+  ];
+  if (goal >= 60) tasks.push({ done: false, label: `דקדוק: ${unit.he}`, href: `#unit/${unit.id}`, icon: '📖' });
+  tasks.push({ done: t.stories >= k, label: k > 1 ? `${k} סיפורים: קריאה, האזנה וחיקוי (${t.stories || 0}/${k})` : 'סיפור: קריאה והאזנה', href: '#stories', icon: '🎧' });
+  const ct = goal >= 60 ? 10 * k : 6;
+  tasks.push({ done: t.chat >= ct, label: `שיחה עם המורה (${Math.min(t.chat || 0, ct)}/${ct} משפטים)`, href: `#chat/${nextScen.id}`, icon: '🗣️' });
+  if (goal >= 60) tasks.push({ done: t.writing >= 1, label: 'כתיבה יומית', href: '#write', icon: '✍️' });
+  if (goal >= 30) {
+    const ext = goal >= 300 ? 120 : goal >= 120 ? 60 : goal >= 60 ? 30 : 15;
+    tasks.push({ done: (t.external || 0) >= ext, label: `האזנה/צפייה חיצונית (${t.external || 0}/${ext} דק')`, href: '#resources', icon: '📺' });
+  }
+  return tasks;
+}
+
+// מפת הדרכים ל-B2: האם הקצב מספיק?
+function roadmapCard() {
+  const p = store.planStatus();
+  if (!p) return '';
+  const v = store.vocabSummary();
+  const lv = ai.levelInfo();
+  const frac = p.day / p.days;
+  const wordsTarget = Math.round(3500 * frac);
+  const hoursTarget = Math.round(600 * frac);
+  const unitTarget = Math.min(UNITS.length, Math.max(1, Math.round(UNITS.length * Math.min(1, frac * 1.1))));
+  const ui = store.currentUnitIndex() + 1;
+  const ok = (a, b) => (a >= b * 0.9 ? 'good' : a >= b * 0.6 ? 'mid' : 'low');
+  return `<div class="card roadmap">
+    <div class="row-between"><h3>🎯 תוכנית ${esc(p.goal)} · יום ${p.day}/${p.days}</h3><span class="lvl">רמה משוערת: <b>${lv.code}</b></span></div>
+    <div class="track"><i style="width:${Math.round(frac * 100)}%"></i></div>
+    <div class="rm-grid">
+      <div class="${ok(v.seen, wordsTarget)}"><b>${v.seen}</b><small>מילים / יעד להיום ${wordsTarget}</small></div>
+      <div class="${ok(p.hours, hoursTarget)}"><b>${Math.round(p.hours)}</b><small>שעות / יעד ${hoursTarget}</small></div>
+      <div class="${ok(ui, unitTarget)}"><b>${ui}</b><small>יחידה / יעד ${unitTarget}</small></div>
+    </div>
+    <p class="small muted">${p.hours < hoursTarget * 0.6 ? 'הקצב איטי מהיעד. זה בסדר – אבל כדי להגיע ל-B2 בזמן צריך יותר שעות ביום, או להאריך את התוכנית.' : 'הקצב טוב! ההתקדמות האמיתית נמדדת בשעות של איטלקית מובנת ובדיבור.'}</p>
+  </div>`;
+}
+
+function externalCard(t) {
+  return `<div class="card ext">
+    <b>📺 האזנה חיצונית היום: ${t.external || 0} דק'</b>
+    <p class="small muted">פודקאסט, יוטיוב או סדרה באיטלקית? רשמו את הזמן – הוא נספר ליעד.</p>
+    <div class="chips">${[15, 30, 60].map((m) => `<button class="chip" data-ext="${m}">+${m} דק'</button>`).join('')}<a class="chip" href="#resources">מה להאזין?</a></div>
+  </div>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ext]'); if (!b) return;
+  const m = +b.dataset.ext;
+  store.bump('external', m); store.bump('seconds', m * 60);
+  toast(`נרשמו ${m} דקות 👏`); render();
+});
+
+// יוצר ברקע מילים ליחידה המתקדמת הבאה כשהמלאי של מילים חדשות עומד להיגמר
+let generating = false;
+async function autoGenerate(force) {
+  if (generating || !ai.hasKey()) return;
+  if (!force && store.pendingNewCount() >= set().newPerDay * 2) return;
+  const cur = UNITS[store.currentUnitIndex()];
+  const u = store.nextUnitToGenerate() || (cur.gen ? cur : UNITS[UNITS.length - 1]);
+  if (!u?.gen) return;
+  generating = true;
+  try {
+    const existing = [...store.allItems().values()].map((x) => x.it);
+    const items = await ai.generateUnitWords(u, existing, 30);
+    const n = store.addUnitWords(u.id, items);
+    if (n) toast(`✨ נוספו ${n} מילים ליחידה "${u.he}"`);
+  } catch (e) { console.warn('autogen', e); }
+  generating = false;
+}
 
 function installHint() {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
@@ -282,8 +371,9 @@ function distractors(it, field, n = 3) {
 routes.practice = {
   tab: 'today',
   render() {
-    const due = store.dueCards().slice(0, 150);
-    const newLeft = Math.max(0, set().newPerDay - store.newIntroducedToday());
+    // שיעור = עד 80 חזרות ו-20 חדשות. אפשר לעשות כמה שיעורים ביום
+    const due = store.dueCards().slice(0, 80);
+    const newLeft = Math.min(20, Math.max(0, set().newPerDay - store.newIntroducedToday()));
     let newIds = store.nextNewItems(newLeft);
     let extra = false;
     if (!due.length && !newIds.length) {
@@ -304,7 +394,8 @@ routes.practice = {
       q.splice(Math.min(q.length, pos + 3), 0, { id, kind: 'test', isNew: true });
     });
     if (!q.length) {
-      view().innerHTML = `<div class="card center"><h2>🎉 סיימת הכל!</h2><p>אין כרטיסים לתרגול כרגע וכל הקורס נלמד. הוסיפו מילים חדשות לפי נושא.</p><a class="btn" href="#words">הוספת מילים</a></div>`;
+      view().innerHTML = `<div class="card center"><h2>🎉 סיימת הכל!</h2><p>אין כרטיסים לתרגול כרגע. ${ai.hasKey() ? 'מכינים לך עכשיו מילים ליחידה הבאה – נסו שוב בעוד דקה.' : 'כדי להמשיך מעבר ל-A2 צריך מפתח AI (הוא יוצר את המילים של יחידות B1–B2).'}</p><a class="btn" href="#course">לקורס</a></div>`;
+      autoGenerate(true);
       return;
     }
     session = { q, i: 0, total: q.filter((x) => x.kind === 'test').length, done: 0, correct: 0, start: Date.now(), wrong: [], relearn: {} };
@@ -525,7 +616,8 @@ function finishSession() {
     <a class="card mini" href="#stories"><span class="emoji">🎧</span><b>סיפור קצר</b><small>עם המילים שלמדת</small></a>
     <a class="card mini" href="#chat"><span class="emoji">🗣️</span><b>שיחה</b><small>לדבר ולקבל תיקונים</small></a>
   </div>
-  <div class="actions"><a class="btn ghost" href="#today">חזרה לדף הבית</a></div>`;
+  <div class="actions">${store.dueCards().length || store.pendingNewCount() ? '<a class="btn" href="#practice" id="again">שיעור נוסף</a>' : ''}<a class="btn ghost" href="#today">חזרה לדף הבית</a></div>`;
+  const ag = $('#again'); if (ag) ag.onclick = (e) => { e.preventDefault(); routes.practice.render(); };
   session = null;
 }
 
@@ -533,17 +625,20 @@ function finishSession() {
 routes.course = {
   render() {
     const cur = store.currentUnitIndex();
+    let head = '';
     view().innerHTML = `<header class="top"><h1>📚 הקורס</h1></header>
-    <p class="muted">16 יחידות לפי סדר שכיחות – מה שהכי שימושי קודם. כל יחידה: הסבר קצר בעברית + מילים ומשפטים שעוברים לתרגול היומי.</p>
+    <p class="muted">${UNITS.length} יחידות מ-A1 עד B2, לפי סדר שכיחות – מה שהכי שימושי קודם. כל יחידה: הסבר קצר בעברית + מילים ומשפטים שעוברים לתרגול היומי. ביחידות B1–B2 המורה מכינה את המילים (30 בכל פעם, אפשר להוסיף עוד).</p>
     <div class="units">${UNITS.map((u, i) => {
       const p = store.unitProgress(u);
-      const pct = Math.round((p.seen / p.total) * 100);
+      const pct = p.total ? Math.round((p.seen / p.total) * 100) : 0;
+      if (i === 16) head = '<h3 class="sec">B1–B2</h3>';
+      else head = '';
       const focus = set().focusUnit === u.id;
-      return `<a class="unit ${i === cur ? 'cur' : ''} ${p.seen === p.total ? 'complete' : ''}" href="#unit/${u.id}">
+      return `${head}<a class="unit ${i === cur ? 'cur' : ''} ${p.total && p.seen === p.total ? 'complete' : ''}" href="#unit/${u.id}">
         <span class="num">${i + 1}</span>
         <div class="u-body"><b>${esc(u.he)}</b><small class="it">${esc(u.it)} · ${u.level}</small>
         <div class="track"><i style="width:${pct}%"></i></div></div>
-        <span class="u-stat">${p.known >= p.total ? '⭐' : p.seen === p.total ? '✓' : focus ? '🎯' : `${p.seen}/${p.total}`}</span></a>`;
+        <span class="u-stat">${!p.total ? '✨' : p.known >= p.total ? '⭐' : p.seen === p.total ? '✓' : focus ? '🎯' : `${p.seen}/${p.total}`}</span></a>`;
     }).join('')}</div>`;
   },
 };
@@ -565,6 +660,7 @@ routes.unit = {
     </div>
     <div class="card">
       <div class="row-between"><h3>מילים וביטויים (${p.seen}/${p.total} נלמדו)</h3>${spk(u.items.map((x) => x[0]).join('. '))}</div>
+      ${u.gen && !u.items.length ? `<p class="muted">המורה תכין את המילים השכיחות והשימושיות ביותר ליחידה הזו (עם משפטי דוגמה שמתרגלים את הדקדוק שלה).</p>` : ''}
       ${u.items.map((x, i) => {
         const c = store.card(`${u.id}.${i}`);
         const mark = isKnown(c) ? '⭐' : isSeen(c) ? '✓' : '';
@@ -572,9 +668,20 @@ routes.unit = {
       }).join('')}
     </div>
     <div class="actions col">
+      ${u.gen ? `<button class="btn ${u.items.length ? 'ghost' : 'big'}" id="genu">${u.items.length ? '+ עוד 30 מילים ליחידה' : '✨ הכן את מילות היחידה'}</button><div id="genout"></div>` : ''}
       ${p.seen < p.total ? `<button class="btn big" id="focus">${focus ? '🎯 היחידה הזו בפוקוס' : 'ללמוד את היחידה הזו עכשיו'}</button>` : ''}
       <a class="btn ghost" href="#practice">לתרגול</a>
     </div>`;
+    const gu = $('#genu');
+    if (gu) gu.onclick = async () => {
+      if (!ai.hasKey()) { $('#genout').innerHTML = noKeyCard('הכנת מילים ליחידות B1–B2'); return; }
+      gu.disabled = true; $('#genout').innerHTML = spinner('מכינה 30 מילים… (כ-30 שניות)');
+      try {
+        const items = await ai.generateUnitWords(u, [...store.allItems().values()].map((x) => x.it), 30);
+        const n = store.addUnitWords(u.id, items);
+        toast(`נוספו ${n} מילים`); routes.unit.render(u.id);
+      } catch (e) { $('#genout').innerHTML = errBox(e); gu.disabled = false; }
+    };
     const f = $('#focus');
     if (f) f.onclick = () => { store.setSetting('focusUnit', u.id); toast('המילים החדשות בתרגול יגיעו מהיחידה הזו'); go('#practice'); };
     $('#ask').onclick = async () => {
@@ -736,7 +843,17 @@ function endChat() {
     <p>אמרת <b>${myTurns}</b> משפטים באיטלקית. ${myTurns >= 6 ? 'כל הכבוד! 💪' : 'נסו להגיע ל-6+ משפטים בשיחה.'}</p>
     ${corr.length ? `<h4>נקודות לשיפור</h4>${corr.map((c) => `<div class="corr-item"><span class="it strike">${esc(c.wrong)}</span> → <span class="it fix">${esc(c.right)}</span><div class="small">${esc(c.why_he)}</div></div>`).join('')}
       <button class="btn" id="addall">+ הוסף את כל התיקונים לתרגול</button>` : '<p class="ok">לא היו טעויות משמעותיות! 🎉</p>'}
+    ${myTurns >= 5 ? '<button class="btn ghost" id="assess">📏 הערכת רמה לפי השיחה</button><div id="assout"></div>' : ''}
     <div class="actions"><button class="btn ghost" id="newchat">שיחה חדשה</button><a class="btn" href="#today">סיום</a></div>`);
+  const as = $('#assess');
+  if (as) as.onclick = async () => {
+    as.disabled = true; $('#assout').innerHTML = spinner('מעריכה…');
+    try {
+      const r = await ai.assessLevel(chat.turns.filter((t) => t.who === 'me').map((t) => t.text));
+      store.S().assessments = [...(store.S().assessments || []), { at: Date.now(), level: r.level }].slice(-30); store.save();
+      $('#assout').innerHTML = `<div class="answer"><p class="big">רמה משוערת בדיבור: <b>${esc(r.level)}</b></p><p>👍 ${esc(r.strengths_he)}</p><p>🎯 ${esc(r.focus_he)}</p><p>➡️ ${esc(r.next_steps_he)}</p></div>`;
+    } catch (e) { $('#assout').innerHTML = errBox(e); }
+  };
   const aa = $('#addall');
   if (aa) aa.onclick = () => { corr.forEach((c) => store.addCustom({ it: c.right, he: c.why_he, src: 'mistake' })); aa.outerHTML = '<p class="ok">✓ נוספו לתרגול</p>'; };
   $('#newchat').onclick = () => { const id = chat.sc.id; chat = null; closeSheet(); openChat(id); };
@@ -751,24 +868,30 @@ routes.stories = {
   render() {
     storyGloss = null;
     const list = loadStories();
+    const lvi = ai.levelInfo().idx;
+    const defLen = lvi >= 4 ? 'long' : lvi >= 2 ? 'medium' : 'short';
+    let len = defLen;
     view().innerHTML = `<header class="top"><h1>🎧 קריאה והאזנה</h1></header>
     <p class="muted">סיפורים קצרים שנכתבים במיוחד בשבילך – רק עם מילים שכבר למדת ועוד כמה חדשות. לחצו על כל מילה לתרגום, האזינו, וחקו את הדובר.</p>
     ${!ai.hasKey() ? noKeyCard('יצירת סיפורים') : `
     <div class="card"><h3>סיפור חדש</h3>
       <div class="chips">${shuffle(STORY_TOPICS).slice(0, 6).map((t) => `<button class="chip" data-topic="${esc(t)}">${esc(t)}</button>`).join('')}</div>
       <div class="inp-row"><input id="topic" placeholder="או נושא משלכם…"><button class="btn" id="gen">צור</button></div>
+      <div class="seg small" id="slen">${[['short', 'קצר'], ['medium', 'בינוני'], ['long', 'ארוך']].map(([k, l]) => `<button data-l="${k}" class="${k === defLen ? 'on' : ''}">${l}</button>`).join('')}</div>
     </div>`}
     ${list.length ? `<h3 class="sec">הסיפורים שלי</h3><div class="story-list">${list.map((s, i) => `<a class="story-item" href="#story/${i}"><b class="it">${esc(s.title)}</b><small>${esc(s.title_he)}</small>${s.read ? '<i>✓</i>' : ''}</a>`).join('')}</div>` : ''}`;
     const gen = async (topic) => {
       view().innerHTML = spinner('כותבת לך סיפור… (כ-20 שניות)');
       try {
-        const s = await ai.makeStory(topic);
+        const s = await ai.makeStory(topic, len);
         s.topic = topic; s.created = Date.now();
         const all = loadStories(); all.unshift(s); saveStories(all);
         go('#story/0');
       } catch (e) { view().innerHTML = errBox(e) + '<a class="btn ghost" href="#stories">חזרה</a>'; }
     };
     view().querySelectorAll('[data-topic]').forEach((b) => { b.onclick = () => gen(b.dataset.topic); });
+    const sl = $('#slen');
+    if (sl) sl.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; len = b.dataset.l; sl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); };
     const g = $('#gen'); if (g) g.onclick = () => gen($('#topic').value.trim() || pick(STORY_TOPICS));
   },
 };
@@ -864,6 +987,15 @@ const WRITE_PROMPTS = [
   [13, 'כתבו דיאלוג קצר בחנות בגדים.'],
   [14, 'ספרו על משהו שקרה לכם לאחרונה ואיך הרגשתם.'],
   [15, 'מה התוכניות שלכם לחופשה הבאה? (עתיד)'],
+  [16, 'ספרו איך היו החיים שלכם כשהייתם ילדים (imperfetto, 5–6 משפטים).'],
+  [17, 'ספרו סיפור מצחיק או מביך שקרה לכם בטיול (passato prossimo + imperfetto).'],
+  [20, 'כתבו מייל מנומס לבעל דירה ב-Airbnb: בקשה, שאלה ותלונה קטנה (condizionale).'],
+  [21, 'כתבו מתכון של מנה שאתם אוהבים (ציווי).'],
+  [24, 'מה דעתכם על עבודה מהבית? יתרונות וחסרונות (penso che + congiuntivo, 8 משפטים).'],
+  [25, 'מה הייתם עושים אילו הייתם גרים שנה באיטליה? (se + congiuntivo imperfetto)'],
+  [27, 'קראו כותרת חדשות כלשהי וסכמו אותה ב-5 משפטים + דעה (si impersonale, discorso indiretto).'],
+  [29, 'כתבו מאמר דעה קצר (150 מילים) על נושא חברתי שחשוב לכם, עם מילות קישור.'],
+  [30, 'כתבו מכתב מוטיבציה למשרה באיטליה (150 מילים).'],
 ];
 
 routes.write = {
@@ -1003,8 +1135,12 @@ routes.settings = {
       <p class="small muted">שימוש עד עכשיו: ${(u.inTok / 1000).toFixed(1)}K טוקנים נכנסים, ${(u.outTok / 1000).toFixed(1)}K יוצאים ≈ <b>$${u.usd.toFixed(3)}</b></p>
     </div>
     <div class="card"><h3>🧠 תרגול</h3>
+      <label class="lbl">זמן לימוד ביום</label>
+      <select id="dgoal">${GOALS.map((g) => `<option value="${g.min}" ${s.dailyGoal === g.min ? 'selected' : ''}>${g.label} – ${g.sub}</option>`).join('')}</select>
       <label class="lbl">מילים חדשות ביום: <b id="npdv">${s.newPerDay}</b></label>
-      <input type="range" id="npd" min="0" max="30" step="1" value="${s.newPerDay}">
+      <input type="range" id="npd" min="0" max="60" step="1" value="${s.newPerDay}">
+      <p class="small muted">כל מילה חדשה ≈ 6–8 חזרות בחודש הראשון. 35 ביום ≈ שעה של תרגול כרטיסיות ביום אחרי כמה שבועות.</p>
+      <div class="actions">${store.S().plan ? '<button class="btn ghost" id="replan">התחלת תוכנית 90 יום מחדש מהיום</button><button class="btn ghost" id="noplan">הסתר תוכנית B2</button>' : '<button class="btn ghost" id="replan">הפעלת תוכנית B2 ל-90 יום</button>'}</div>
       <label class="lbl">רמת זכירה רצויה: <b id="retv">${Math.round(s.retention * 100)}%</b></label>
       <input type="range" id="ret" min="80" max="95" step="1" value="${Math.round(s.retention * 100)}">
       <p class="small muted">90% מומלץ. גבוה יותר = יותר חזרות ביום.</p>
@@ -1040,6 +1176,14 @@ routes.settings = {
       try { const r = await ai.testKey(); out.innerHTML = `<p class="ok">✓ עובד! המורה אומרת: <span class="it">${esc(r.msg)}</span></p>`; } catch (e) { out.innerHTML = errBox(e); }
     };
     $('#model').onchange = (e) => store.setSetting('model', e.target.value);
+    $('#dgoal').onchange = (e) => {
+      const g = GOALS.find((x) => x.min === +e.target.value);
+      store.setSetting('dailyGoal', g.min); store.setSetting('newPerDay', g.npd);
+      if (g.plan && !store.S().plan) store.setPlan(90, 'B2');
+      routes.settings.render();
+    };
+    $('#replan').onclick = () => { store.setPlan(90, 'B2'); toast('תוכנית 90 יום התחילה'); routes.settings.render(); };
+    const np = $('#noplan'); if (np) np.onclick = () => { store.S().plan = null; store.save(); routes.settings.render(); };
     $('#npd').oninput = (e) => { $('#npdv').textContent = e.target.value; store.setSetting('newPerDay', +e.target.value); };
     $('#ret').oninput = (e) => { $('#retv').textContent = e.target.value + '%'; store.setSetting('retention', +e.target.value / 100); };
     const uf = $('#unfocus'); if (uf) uf.onclick = () => { store.setSetting('focusUnit', ''); routes.settings.render(); };
@@ -1080,6 +1224,15 @@ function downloadICS(time) {
   download('italiano-reminder.ics', ics, 'text/calendar');
   toast('פתחו את הקובץ כדי להוסיף ליומן');
 }
+
+routes.resources = {
+  tab: 'today',
+  async render() {
+    view().innerHTML = `<header class="top"><a href="#today" class="back">→</a><h1>📺 האזנה וצפייה</h1></header><div class="card help" id="resc">${spinner('טוען…')}</div>`;
+    try { $('#resc').innerHTML = await (await fetch('resources.html')).text(); } catch { $('#resc').innerHTML = '<p>לא זמין במצב לא מקוון.</p>'; }
+    $('#resc').insertAdjacentHTML('beforeend', `<h3>רישום זמן</h3>${externalCard(store.today())}`);
+  },
+};
 
 routes.help = {
   tab: 'more',
