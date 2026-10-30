@@ -160,19 +160,27 @@ function renderOnboarding() {
   $('#start').onclick = () => {
     const g = GOALS[gi];
     store.setSetting('newPerDay', g.npd); store.setSetting('dailyGoal', g.min);
-    if (g.plan) store.setPlan(90, 'B2');
+    if (g.plan) store.setPlan(planDays('B1', g.min), 'B1');
     store.S().onboarded = true; store.save(); go('#today');
   };
 }
 
 // יעדי זמן יומיים. הקצב נגזר מההערכה: B2 ≈ 500–650 שעות לימוד מאפס (Cambridge / FSI)
 const GOALS = [
-  { min: 15, npd: 10, label: '15 דק\'', sub: 'רגוע', note: 'בערך A2 אחרי 3 חודשים' },
-  { min: 30, npd: 15, label: '30 דק\'', sub: 'קבוע', note: 'בערך A2+ אחרי 3 חודשים' },
-  { min: 60, npd: 25, label: 'שעה', sub: 'רציני', note: 'בערך B1 אחרי 3 חודשים', plan: true },
-  { min: 150, npd: 35, label: '2–3 שעות', sub: 'אינטנסיבי', note: 'B1+ אחרי 3 חודשים, B2 תוך 5–6', plan: true },
-  { min: 360, npd: 45, label: '6+ שעות', sub: 'טבילה מלאה', note: 'הקצב שנדרש ל-B2 בתוך 3 חודשים', plan: true },
+  { min: 15, npd: 10, label: '15 דק\'', sub: 'רגוע', note: 'בסיס שימושי לטיול תוך כמה חודשים' },
+  { min: 30, npd: 15, label: '30 דק\'', sub: 'קבוע', note: 'A2 תוך כשנה' },
+  { min: 60, npd: 25, label: 'שעה', sub: 'רציני', note: 'A2 תוך כ-6 חודשים, רמה טובה (B1) תוך כשנה', plan: true },
+  { min: 150, npd: 35, label: '2–3 שעות', sub: 'אינטנסיבי', note: 'רמה טובה (B1) תוך כ-4–5 חודשים', plan: true },
+  { min: 360, npd: 45, label: '6+ שעות', sub: 'טבילה מלאה', note: 'B1 תוך כחודשיים, B2 תוך 3–4 חודשים', plan: true },
 ];
+
+// יעדי רמה: B1 = "רמה טובה" (שיחה בביטחון, הבנת רוב הדיבור היומיומי), B2 = כמעט שוטף
+const TARGETS = {
+  B1: { hours: 350, words: 1300, unit: 24, he: 'לדבר בביטחון ולהבין את רוב היומיום' },
+  B2: { hours: 600, words: 3500, unit: 36, he: 'כמעט שוטף: סדרות, חדשות ודיונים' },
+};
+const planDays = (goal, minutes) => Math.max(45, Math.min(730, Math.round(TARGETS[goal].hours / Math.max(0.25, minutes / 60))));
+const monthsText = (days) => days < 75 ? `${Math.round(days / 7)} שבועות` : `${Math.round(days / 30)} חודשים`;
 
 // ================= היום =================
 const TIPS = [
@@ -273,21 +281,22 @@ function roadmapCard() {
   if (!p) return '';
   const v = store.vocabSummary();
   const lv = ai.levelInfo();
+  const T = TARGETS[p.goal] || TARGETS.B1;
   const frac = p.day / p.days;
-  const wordsTarget = Math.round(3500 * frac);
-  const hoursTarget = Math.round(600 * frac);
-  const unitTarget = Math.min(UNITS.length, Math.max(1, Math.round(UNITS.length * Math.min(1, frac * 1.1))));
+  const wordsTarget = Math.round(T.words * frac);
+  const hoursTarget = Math.round(T.hours * frac);
+  const unitTarget = Math.min(T.unit, Math.max(1, Math.round(T.unit * Math.min(1, frac * 1.1))));
   const ui = store.currentUnitIndex() + 1;
   const ok = (a, b) => (a >= b * 0.9 ? 'good' : a >= b * 0.6 ? 'mid' : 'low');
   return `<div class="card roadmap">
-    <div class="row-between"><h3>🎯 תוכנית ${esc(p.goal)} · יום ${p.day}/${p.days}</h3><span class="lvl">רמה משוערת: <b>${lv.code}</b></span></div>
+    <div class="row-between"><h3>🎯 יעד ${esc(p.goal)} · יום ${p.day}/${p.days}</h3><span class="lvl">רמה משוערת: <b>${lv.code}</b></span></div>
     <div class="track"><i style="width:${Math.round(frac * 100)}%"></i></div>
     <div class="rm-grid">
       <div class="${ok(v.seen, wordsTarget)}"><b>${v.seen}</b><small>מילים / יעד להיום ${wordsTarget}</small></div>
       <div class="${ok(p.hours, hoursTarget)}"><b>${Math.round(p.hours)}</b><small>שעות / יעד ${hoursTarget}</small></div>
       <div class="${ok(ui, unitTarget)}"><b>${ui}</b><small>יחידה / יעד ${unitTarget}</small></div>
     </div>
-    <p class="small muted">${p.hours < hoursTarget * 0.6 ? 'הקצב איטי מהיעד. זה בסדר – אבל כדי להגיע ל-B2 בזמן צריך יותר שעות ביום, או להאריך את התוכנית.' : 'הקצב טוב! ההתקדמות האמיתית נמדדת בשעות של איטלקית מובנת ובדיבור.'}</p>
+    <p class="small muted">${p.day > 3 && p.hours < hoursTarget * 0.6 ? `קצת מאחורי הקצב – וזה בסדר. אפשר להאריך את התוכנית בהגדרות. העיקר להמשיך כל יום.` : `הקצב טוב! ${esc(T.he)} – בעוד כ-${monthsText(p.days - p.day)}.`}</p>
   </div>`;
 }
 
@@ -1140,7 +1149,12 @@ routes.settings = {
       <label class="lbl">מילים חדשות ביום: <b id="npdv">${s.newPerDay}</b></label>
       <input type="range" id="npd" min="0" max="60" step="1" value="${s.newPerDay}">
       <p class="small muted">כל מילה חדשה ≈ 6–8 חזרות בחודש הראשון. 35 ביום ≈ שעה של תרגול כרטיסיות ביום אחרי כמה שבועות.</p>
-      <div class="actions">${store.S().plan ? '<button class="btn ghost" id="replan">התחלת תוכנית 90 יום מחדש מהיום</button><button class="btn ghost" id="noplan">הסתר תוכנית B2</button>' : '<button class="btn ghost" id="replan">הפעלת תוכנית B2 ל-90 יום</button>'}</div>
+      <label class="lbl">יעד</label>
+      <select id="target">
+        <option value="" ${!store.S().plan ? 'selected' : ''}>בלי יעד – פשוט ללמוד</option>
+        ${Object.entries(TARGETS).map(([k, t]) => `<option value="${k}" ${store.S().plan?.goal === k ? 'selected' : ''}>${k} – ${t.he}</option>`).join('')}
+      </select>
+      <p class="small muted" id="tgnote">${store.S().plan ? `בקצב של ${s.dailyGoal >= 60 ? Math.round(s.dailyGoal / 6) / 10 + ' שעות' : s.dailyGoal + ' דק\''} ביום: ${store.S().plan.goal} בעוד כ-${monthsText(planDays(store.S().plan.goal, s.dailyGoal))} מתחילת התוכנית.` : 'אפשר להגדיר יעד בכל שלב.'}</p>
       <label class="lbl">רמת זכירה רצויה: <b id="retv">${Math.round(s.retention * 100)}%</b></label>
       <input type="range" id="ret" min="80" max="95" step="1" value="${Math.round(s.retention * 100)}">
       <p class="small muted">90% מומלץ. גבוה יותר = יותר חזרות ביום.</p>
@@ -1179,11 +1193,17 @@ routes.settings = {
     $('#dgoal').onchange = (e) => {
       const g = GOALS.find((x) => x.min === +e.target.value);
       store.setSetting('dailyGoal', g.min); store.setSetting('newPerDay', g.npd);
-      if (g.plan && !store.S().plan) store.setPlan(90, 'B2');
+      const pl = store.S().plan;
+      if (pl) { pl.days = planDays(pl.goal, g.min); store.save(); } // משנים קצב – לא מאפסים את ההתקדמות
       routes.settings.render();
     };
-    $('#replan').onclick = () => { store.setPlan(90, 'B2'); toast('תוכנית 90 יום התחילה'); routes.settings.render(); };
-    const np = $('#noplan'); if (np) np.onclick = () => { store.S().plan = null; store.save(); routes.settings.render(); };
+    $('#target').onchange = (e) => {
+      const goal = e.target.value;
+      if (!goal) store.S().plan = null;
+      else if (store.S().plan) { store.S().plan.goal = goal; store.S().plan.days = planDays(goal, set().dailyGoal); }
+      else store.setPlan(planDays(goal, set().dailyGoal), goal);
+      store.save(); routes.settings.render();
+    };
     $('#npd').oninput = (e) => { $('#npdv').textContent = e.target.value; store.setSetting('newPerDay', +e.target.value); };
     $('#ret').oninput = (e) => { $('#retv').textContent = e.target.value + '%'; store.setSetting('retention', +e.target.value / 100); };
     const uf = $('#unfocus'); if (uf) uf.onclick = () => { store.setSetting('focusUnit', ''); routes.settings.render(); };
