@@ -240,7 +240,12 @@ export function importJSON(text) {
 export function resetAll() { localStorage.removeItem(KEY); state = structuredClone(DEFAULTS); hydrateUnits(); itemCache = null; }
 
 // ---------- תוכנית אינטנסיבית ----------
-export function setPlan(days, goal) { state.plan = { start: Date.now(), days, goal }; save(); }
+export const studiedHours = () => Object.values(state.stats).reduce((a, x) => a + (x.seconds || 0), 0) / 3600;
+// התוכנית מתחילה מהיום, עם "נקודת פתיחה" – כך היעדים היומיים מחושבים רק על מה שנשאר
+export function setPlan(days, goal) {
+  state.plan = { start: Date.now(), days, goal, baseHours: studiedHours(), baseWords: vocabSummary().seen };
+  save();
+}
 export function planStatus() {
   if (!state.plan) return null;
   const day = Math.floor((Date.now() - state.plan.start) / 86400000) + 1;
