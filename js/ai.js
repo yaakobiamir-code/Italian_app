@@ -270,6 +270,36 @@ Rules:
   return r.items || [];
 }
 
+// ---------- 4ב2. הפיכת מה שנאסף בשיחות ובסיפורים לכרטיסיות נקיות ----------
+const ENRICH_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['items'],
+  properties: {
+    items: {
+      type: 'array', items: {
+        type: 'object', additionalProperties: false, required: ['id', 'it', 'he', 'form', 'ex', 'exHe', 'note_he'],
+        properties: {
+          id: { type: 'string' }, it: { type: 'string' }, he: { type: 'string' },
+          form: { type: 'string', description: 'the exact word/phrase as it appears inside ex' },
+          ex: { type: 'string' }, exHe: { type: 'string' }, note_he: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
+export async function enrichItems(raw) {
+  const system = `You turn notes captured during a Hebrew speaker's Italian practice into clean flashcards, keeping the learner's OWN context so the card feels like a continuation of what they read or said.
+${learnerProfile()}
+
+Each note has a source:
+- "tap": a word the learner looked up while reading/listening. "it" = dictionary form (nouns with article, verbs in the infinitive) unless it is a fixed expression. "he" = meaning in that context. "ex" = the single sentence from the given context that contains the word (copy it exactly; if the context has several sentences, keep only that one). "form" = the word exactly as it appears in ex. "note_he" = a very short note if the form differs from the dictionary form (e.g. "צורת עבר של andare"), else "".
+- "chat": a word the tutor used. Same rules; ex = the single sentence from the tutor's message containing it.
+- "mistake": an error the learner made. "it" = the SHORT correct Italian chunk (1-5 words) that fixes the error. "he" = what that chunk means in Hebrew. "ex" = the learner's own sentence, fully corrected and natural. "form" = the chunk as it appears in ex. "note_he" = one short Hebrew sentence with the rule (what was wrong and why).
+"exHe" = natural Hebrew translation of ex. Return one item per input, with the same id.`;
+  const r = await callJSON({ system, messages: [{ role: 'user', content: JSON.stringify(raw) }], schema: ENRICH_SCHEMA, maxTokens: 8000 });
+  return r.items || [];
+}
+
 // ---------- 4ג. הערכת רמה לפי מה שהלומד כתב/אמר ----------
 const LEVEL_SCHEMA = {
   type: 'object', additionalProperties: false, required: ['level', 'strengths_he', 'focus_he', 'next_steps_he'],

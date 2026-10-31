@@ -305,3 +305,8 @@ body[data-route=practice] { padding-bottom: 20px; }
 .rm-grid .mid b { color: var(--gold); }
 .rm-grid .low b { color: var(--red); }
 .card.ext .chips { margin: 8px 0 0; }
+
+/* continuity */
+.src-tag { display: inline-block; background: var(--gold-soft); color: var(--ink); border-radius: 99px; padding: 1px 10px; font-size: .78rem; margin-inline-start: 6px; }
+.note { background: var(--gold-soft); border-radius: 10px; padding: 6px 10px; text-align: right; }
+.example.ctx { border-top-style: solid; }

@@ -103,31 +103,97 @@ async function wordSheet(word, ctx) {
   const draw = (body) => sheet(`
     <div class="sheet-head"><span class="it big">${esc(word)}</span>${spk(word)}<button class="icon-btn" data-close>✕</button></div>
     ${body}`);
-  if (info) return draw(wordBody(info, ctx));
+  if (info) return draw(wordBody(info, autoAdd(info, word, ctx)));
   if (!ai.hasKey()) return draw(`<p class="muted">אין תרגום שמור למילה הזו. עם מפתח AI אפשר לתרגם כל מילה.</p>`);
   draw(spinner('מתרגם…'));
   try {
     const r = await ai.glossWord(word, ctx);
-    if ($('#sheet').classList.contains('open')) draw(wordBody(r, ctx));
+    if ($('#sheet').classList.contains('open')) draw(wordBody(r, autoAdd(r, word, ctx)));
   } catch (err) { draw(errBox(err)); }
 }
 
-function wordBody(info, ctx) {
+// מילה שבדקתם = מילה שלא ידעתם. היא נכנסת לתרגול אוטומטית, עם המשפט שבו פגשתם אותה
+function autoAdd(info, word, ctx) {
+  if (info.known && store.card(info.known)) return { already: true };
+  if (info.known) { store.addCustom({ it: info.base, he: info.he, src: 'tap' }); return { id: info.known }; }
+  const before = new Set(Object.keys(store.S().cards));
+  const id = store.addCustom({ it: info.base || word, he: info.he, ex: ctx || '', exHe: ctxHe(ctx), src: 'tap', raw: !!ctx, form: word, note: info.note_he || '' });
+  if (!id) return {};
+  return before.has(id) ? { already: true } : { id };
+}
+const ctxHe = (sent) => store.ctxLines().find((l) => l.it === sent)?.he || '';
+
+function wordBody(info, add = {}) {
   const base = info.base || '';
-  const inDeck = info.known && store.card(info.known);
   return `<p class="he big">${esc(info.he)}</p>
     ${base ? `<p>צורת מילון: <span class="it">${esc(base)}</span> ${spk(base)}</p>` : ''}
     ${info.note_he ? `<p class="muted">${esc(info.note_he)}</p>` : ''}
-    ${inDeck ? '<p class="ok">✓ כבר בכרטיסיות שלך</p>' :
-      `<button class="btn" id="addw" data-it="${esc(base || '')}" data-he="${esc(info.he)}" data-ctx="${esc(ctx || '')}">+ הוסף לתרגול</button>`}`;
+    ${add.already ? '<p class="ok">✓ כבר בכרטיסיות שלך</p>' : add.id ?
+      `<p class="ok">✓ נוסף לתרגול – יופיע עם המשפט הזה <button class="chip" data-undo="${esc(add.id)}">בטל</button></p>` : ''}`;
 }
 document.addEventListener('click', (e) => {
-  const b = e.target.closest('#addw');
+  const b = e.target.closest('[data-undo]');
   if (!b) return;
-  const it = b.dataset.it || $('.sheet-head .it')?.textContent;
-  store.addCustom({ it, he: b.dataset.he, ex: b.dataset.ctx, src: 'tap' });
-  b.outerHTML = '<p class="ok">✓ נוסף! יופיע בתרגול הבא</p>';
+  const id = b.dataset.undo;
+  if (id.startsWith('c.')) store.removeCustom(id); else store.deleteCard(id);
+  b.parentElement.outerHTML = '<p class="muted">לא נוסף.</p>';
 });
+
+// ================= המשכיות: הכרטיסיות משתמשות במה שקראתם ואמרתם =================
+const reEsc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function findIn(sentence, variants) {
+  for (const v of variants) {
+    const m = sentence.match(new RegExp(`(^|[^A-Za-zÀ-ÿ])(${reEsc(v)})(?=$|[^A-Za-zÀ-ÿ])`, 'i'));
+    if (m) return { form: m[2], index: m.index + m[1].length };
+  }
+  return null;
+}
+const itemVariants = (it, min = 2) => [...new Set([it.form, ...answerVariants(it.it)].filter((v) => v && v.replace(/[^A-Za-zÀ-ÿ]/g, '').length >= min))]
+  .sort((a, b) => b.length - a.length);
+
+// המשפט הכי חדש מהסיפורים/השיחות של הלומד שמכיל את המילה
+function contextFor(it) {
+  if (!it) return null;
+  const vs = itemVariants(it, 3);
+  if (!vs.length) return null;
+  for (const l of store.ctxLines()) {
+    if (l.it === it.ex) continue;
+    const f = findIn(l.it, vs);
+    if (f) return { sent: l.it, he: l.he, src: l.src, ...f };
+  }
+  return null;
+}
+const SRC_LABEL = { story: '📖 מסיפור שקראת', tap: '📖 מסיפור שקראת', chat: '💬 מהשיחה שלך', mistake: '✏️ המשפט שלך, מתוקן' };
+
+// משפט לתרגיל השלמה: לרוב משפט שהלומד פגש בעצמו, ולפעמים משפט הדוגמה
+function clozeSource(it) {
+  const ctx = contextFor(it);
+  const own = it.ex ? findIn(it.ex, itemVariants(it)) : null;
+  if (ctx && (!own || Math.random() < 0.7)) return { sent: ctx.sent, he: ctx.he, form: ctx.form, index: ctx.index, label: SRC_LABEL[ctx.src] || '' };
+  if (own) return { sent: it.ex, he: it.exHe, form: own.form, index: own.index, label: SRC_LABEL[it.src] || '' };
+  return null;
+}
+
+// הופכים את מה שנאסף (מילים שנבדקו, תיקונים) לכרטיסים נקיים בעזרת המורה
+let enriching = null;
+function enrichPending() {
+  if (enriching) return enriching;
+  const raw = store.pendingRaw().slice(0, 25);
+  if (!raw.length || !ai.hasKey()) return Promise.resolve();
+  enriching = ai.enrichItems(raw.map((c) => ({ id: c.id, src: c.src, it: c.it, he: c.he, context: c.ex, wrong: c.wrong || undefined, rule: c.note || undefined })))
+    .then((items) => {
+      const byId = new Map(items.map((x) => [x.id, x]));
+      for (const c of raw) {
+        const x = byId.get(c.id);
+        // מה שלא חזר – נשאר כמו שהוא (לא מנסים שוב, כדי לא לבזבז)
+        store.updateCustom(c.id, x ? { it: x.it, he: x.he, form: x.form, ex: x.ex, exHe: x.exHe, note: x.note_he } : {});
+      }
+    })
+    .catch((e) => console.warn('enrich', e))
+    .finally(() => { enriching = null; });
+  return enriching;
+}
+const timeout = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ================= קבלת פנים =================
 function renderOnboarding() {
@@ -217,7 +283,10 @@ routes.today = {
     const t = store.today();
     const due = store.dueCards().length;
     const newLeft = Math.max(0, set().newPerDay - store.newIntroducedToday());
-    const newAvail = store.nextNewItems(newLeft).length;
+    const newList = store.nextNewItems(newLeft);
+    const newAvail = newList.length;
+    const fromYou = newList.filter((id) => SRC_LABEL[store.card(id)?.src || store.item(id)?.src]).length;
+    if (store.pendingRaw().length >= 5) enrichPending();
     const v = store.vocabSummary();
     const st = store.streak();
     const ui = store.currentUnitIndex();
@@ -248,6 +317,7 @@ routes.today = {
       <div>
         <h2>🧠 תרגול יומי</h2>
         <p>${due ? `<b>${due}</b> לחזרה` : 'אין חזרות ממתינות'}${newAvail ? ` · <b>${newAvail}</b> מילים חדשות` : ''}</p>
+        ${fromYou ? `<p class="small">✨ ${fromYou} מהן מהסיפורים והשיחות שלך</p>` : ''}
         <p class="muted small">יחידה נוכחית: ${esc(unit.he)}</p>
       </div>
       <span class="go">${due + newAvail ? 'התחל ←' : 'תרגול נוסף ←'}</span>
@@ -362,26 +432,17 @@ let session = null;
 function chooseMode(c, isNewTest) {
   if (isNewTest) return 'mc-it-he';
   const it = store.item(c.id);
-  const canCloze = !!clozeForm(it);
+  const hasCtx = !!contextFor(it);
+  const canCloze = hasCtx || !!(it.ex && findIn(it.ex, itemVariants(it)));
   const s = c.s || 0;
   let modes;
   if (c.state === 'learning') modes = ['mc-he-it', 'mc-it-he'];
   else if (s < 2.5) modes = ['mc-it-he', 'listen', 'mc-he-it'];
-  else if (s < 8) modes = ['listen', 'mc-he-it', canCloze ? 'cloze' : 'mc-he-it', 'type'];
-  else modes = ['type', canCloze ? 'cloze-type' : 'type', sttAvailable() ? 'speak' : 'type', 'listen'];
+  else if (s < 8) modes = ['listen', 'mc-he-it', canCloze ? 'cloze' : 'mc-he-it', 'type', ...(hasCtx ? ['cloze'] : [])];
+  else modes = ['type', canCloze ? 'cloze-type' : 'type', sttAvailable() ? 'speak' : 'type', 'listen', ...(hasCtx ? ['cloze-type'] : [])];
   return pick(modes);
 }
 
-function clozeForm(it) {
-  if (!it || !it.ex) return null;
-  const exN = it.ex.toLowerCase();
-  const vs = answerVariants(it.it).filter((v) => v.length > 1).sort((a, b) => b.length - a.length);
-  for (const v of vs) {
-    const i = exN.indexOf(v.toLowerCase());
-    if (i >= 0) return { form: it.ex.substr(i, v.length), index: i };
-  }
-  return null;
-}
 
 function distractors(it, field, n = 3) {
   const pool = [...store.allItems().values()].filter((x) => x.id !== it.id && x[field] !== it[field]);
@@ -397,6 +458,14 @@ function distractors(it, field, n = 3) {
 routes.practice = {
   tab: 'today',
   render() {
+    if (ai.hasKey() && store.pendingRaw().length) {
+      view().innerHTML = spinner('מכינה כרטיסים ממה שקראת ואמרת…');
+      Promise.race([enrichPending(), timeout(25000)]).then(() => { if (location.hash === '#practice') routes.practice.build(); });
+      return;
+    }
+    routes.practice.build();
+  },
+  build() {
     // שיעור = עד 80 חזרות ו-20 חדשות. אפשר לעשות כמה שיעורים ביום
     const due = store.dueCards().slice(0, 80);
     const newLeft = Math.min(20, Math.max(0, set().newPerDay - store.newIntroducedToday()));
@@ -449,10 +518,11 @@ function nextCard() {
 function showIntro(it) {
   view().innerHTML = `${progressBar()}
   <div class="flash intro">
-    <div class="badge">✨ מילה חדשה</div>
+    <div class="badge">${{ mistake: '✏️ תיקון מהשיחה שלך', tap: '📖 מילה שבדקת בסיפור', story: '📖 מהסיפור שלך', chat: '💬 מהשיחה שלך' }[store.card(it.id)?.src || it.src] || '✨ מילה חדשה'}</div>
     <div class="it huge">${tappable(it.it)}</div>
     <div class="say-row">${spk(it.it)}${spk(it.it, true)}</div>
     <div class="he big">${esc(it.he)}</div>
+    ${it.note ? `<p class="note">💡 ${esc(it.note)}</p>` : ''}
     ${it.ex ? `<div class="example"><div class="it">${tappable(it.ex)} ${spk(it.ex)}</div><div class="he muted">${esc(it.exHe)}</div></div>` : ''}
     <p class="muted small">🗣️ אמרו את המילה בקול פעמיים</p>
   </div>
@@ -469,10 +539,8 @@ function showTest(it, c, mode, task) {
   const t0 = Date.now();
   let body = '';
   let answerHtml = '';
-  const form = clozeForm(it);
-  if (mode === 'cloze' || mode === 'cloze-type') {
-    if (!form) mode = mode === 'cloze' ? 'mc-he-it' : 'type';
-  }
+  const form = mode.startsWith('cloze') ? clozeSource(it) : null;
+  if (mode.startsWith('cloze') && !form) mode = mode === 'cloze' ? 'mc-he-it' : 'type';
   if (mode === 'speak' && !sttAvailable()) mode = 'type';
 
   if (mode === 'mc-it-he') {
@@ -489,14 +557,14 @@ function showTest(it, c, mode, task) {
     answerHtml = mcOptions(opts, 'it');
   } else if (mode === 'cloze') {
     const opts = shuffle([form.form, ...distractors(it, 'it').map((x) => x.replace(/^(il|lo|la|i|gli|le)\s+/i, ''))]);
-    body = `<div class="prompt-label">השלימו את המשפט</div>
-      <div class="it big cloze">${esc(it.ex.slice(0, form.index))}<span class="blank">____</span>${esc(it.ex.slice(form.index + form.form.length))}</div>
-      <div class="he muted">${esc(it.exHe)}</div>`;
+    body = `<div class="prompt-label">השלימו את המשפט ${form.label ? `<span class="src-tag">${form.label}</span>` : ''}</div>
+      <div class="it big cloze">${esc(form.sent.slice(0, form.index))}<span class="blank">____</span>${esc(form.sent.slice(form.index + form.form.length))}</div>
+      <div class="he muted">${esc(form.he)}</div>`;
     answerHtml = mcOptions(opts, 'it');
   } else if (mode === 'cloze-type') {
-    body = `<div class="prompt-label">השלימו את המשפט (הקלידו)</div>
-      <div class="it big cloze">${esc(it.ex.slice(0, form.index))}<span class="blank">____</span>${esc(it.ex.slice(form.index + form.form.length))}</div>
-      <div class="he muted">${esc(it.exHe)}</div><div class="he small muted">(${esc(it.he)})</div>`;
+    body = `<div class="prompt-label">השלימו את המשפט (הקלידו) ${form.label ? `<span class="src-tag">${form.label}</span>` : ''}</div>
+      <div class="it big cloze">${esc(form.sent.slice(0, form.index))}<span class="blank">____</span>${esc(form.sent.slice(form.index + form.form.length))}</div>
+      <div class="he muted">${esc(form.he)}</div><div class="he small muted">(${esc(it.he)}${normalize(form.form) !== normalize(it.it) ? ` · <span class="it">${esc(it.it)}</span>` : ''})</div>`;
     answerHtml = typeBox();
   } else if (mode === 'type') {
     body = `<div class="prompt-label">כתבו באיטלקית</div><div class="he huge">${esc(it.he)}</div>
@@ -599,7 +667,9 @@ function onAnswer(it, c, mode, task, result, given, ms) {
     ${!ok && given && !mode.startsWith('mc') ? `<div class="small">כתבת: <span class="it strike">${esc(given)}</span></div>` : ''}
     <div class="it big">${tappable(it.it)} ${spk(it.it)}</div>
     <div class="he">${esc(it.he)}</div>
+    ${it.note ? `<p class="note small">💡 ${esc(it.note)}</p>` : ''}
     ${it.ex ? `<div class="example"><div class="it">${tappable(it.ex)} ${spk(it.ex)}</div><div class="he muted small">${esc(it.exHe)}</div></div>` : ''}
+    ${(() => { const cx = contextFor(it); return cx && !mode.startsWith('cloze') ? `<div class="example ctx"><div class="small muted">${SRC_LABEL[cx.src] || ''} – פגשת את זה כאן:</div><div class="it">${tappable(cx.sent)} ${spk(cx.sent)}</div><div class="he muted small">${esc(cx.he)}</div></div>` : ''; })()}
     <div class="actions">
       ${!ok && given && !mode.startsWith('mc') ? '<button class="btn ghost" id="override">בעצם צדקתי</button>' : ''}
       <button class="btn big" id="next">המשך ←</button>
@@ -814,6 +884,11 @@ async function aiTurn() {
     const lastMe = [...chat.turns].reverse().find((t) => t.who === 'me');
     if (lastMe && r.corrections?.length) { lastMe.corrections = r.corrections; chat.corrections.push(...r.corrections); }
     chat.turns.push({ who: 'ai', text: r.reply, he: r.reply_he, hint: r.hint_he, words: r.new_words || [] });
+    store.addContext([{ it: r.reply, he: r.reply_he, src: 'chat' }]);
+    // התיקונים נכנסים לתרגול אוטומטית – עם המשפט שהלומד אמר
+    if (lastMe && r.corrections?.length) {
+      r.corrections.forEach((c) => store.addCustom({ it: c.right, he: c.why_he, ex: lastMe.text, src: 'mistake', raw: true, wrong: c.wrong, note: c.why_he }));
+    }
     if (set().speakAnswers) speak(r.reply);
   } catch (e) {
     chat.turns.push({ who: 'err', text: e.message });
@@ -831,7 +906,7 @@ function drawMsgs() {
       ${t.corrections?.length ? `<div class="corr">${t.corrections.map((c, j) => `
         <div class="corr-item"><span class="it strike">${esc(c.wrong)}</span> → <span class="it fix">${esc(c.right)}</span> ${spk(c.right)}
         <div class="small">${esc(c.why_he)}</div>
-        <button class="chip" data-addcorr="${k}:${j}">+ לתרגול</button></div>`).join('')}</div>` : ''}</div>`;
+        <span class="chip ok">✓ נכנס לתרגול</span></div>`).join('')}</div>` : ''}</div>`;
     }
     if (t.who === 'err') return `<div class="msg err">⚠️ ${esc(t.text)} <button class="chip" id="retry">נסו שוב</button></div>`;
     return `<div class="msg ai"><div class="it" dir="ltr">${tappable(t.text)}</div>
@@ -849,14 +924,8 @@ function drawMsgs() {
     const aw = e.target.closest('[data-addw]');
     if (aw) {
       const [k, j] = aw.dataset.addw.split(':').map(Number); const w = chat.turns[k].words[j];
-      store.addCustom({ it: w.it, he: w.he, ex: chat.turns[k].text, exHe: chat.turns[k].he, src: 'chat' });
+      store.addCustom({ it: w.it, he: w.he, ex: chat.turns[k].text, exHe: chat.turns[k].he, src: 'chat', raw: true });
       aw.outerHTML = `<span class="chip ok">✓ ${esc(w.it)}</span>`; return;
-    }
-    const ac = e.target.closest('[data-addcorr]');
-    if (ac) {
-      const [k, j] = ac.dataset.addcorr.split(':').map(Number); const c = chat.turns[k].corrections[j];
-      store.addCustom({ it: c.right, he: c.why_he, ex: '', src: 'mistake' });
-      ac.outerHTML = '<span class="chip ok">✓ נוסף</span>'; return;
     }
     if (e.target.id === 'retry') { chat.turns = chat.turns.filter((t) => t.who !== 'err'); drawMsgs(); aiTurn(); }
   };
@@ -868,7 +937,7 @@ function endChat() {
   sheet(`<div class="sheet-head"><b>🏁 סיכום השיחה</b><button class="icon-btn" data-close>✕</button></div>
     <p>אמרת <b>${myTurns}</b> משפטים באיטלקית. ${myTurns >= 6 ? 'כל הכבוד! 💪' : 'נסו להגיע ל-6+ משפטים בשיחה.'}</p>
     ${corr.length ? `<h4>נקודות לשיפור</h4>${corr.map((c) => `<div class="corr-item"><span class="it strike">${esc(c.wrong)}</span> → <span class="it fix">${esc(c.right)}</span><div class="small">${esc(c.why_he)}</div></div>`).join('')}
-      <button class="btn" id="addall">+ הוסף את כל התיקונים לתרגול</button>` : '<p class="ok">לא היו טעויות משמעותיות! 🎉</p>'}
+      <p class="ok small">✓ כל התיקונים כבר בתרגול – עם המשפטים שלך, מתוקנים.</p>` : '<p class="ok">לא היו טעויות משמעותיות! 🎉</p>'}
     ${myTurns >= 5 ? '<button class="btn ghost" id="assess">📏 הערכת רמה לפי השיחה</button><div id="assout"></div>' : ''}
     <div class="actions"><button class="btn ghost" id="newchat">שיחה חדשה</button><a class="btn" href="#today">סיום</a></div>`);
   const as = $('#assess');
@@ -880,8 +949,7 @@ function endChat() {
       $('#assout').innerHTML = `<div class="answer"><p class="big">רמה משוערת בדיבור: <b>${esc(r.level)}</b></p><p>👍 ${esc(r.strengths_he)}</p><p>🎯 ${esc(r.focus_he)}</p><p>➡️ ${esc(r.next_steps_he)}</p></div>`;
     } catch (e) { $('#assout').innerHTML = errBox(e); }
   };
-  const aa = $('#addall');
-  if (aa) aa.onclick = () => { corr.forEach((c) => store.addCustom({ it: c.right, he: c.why_he, src: 'mistake' })); aa.outerHTML = '<p class="ok">✓ נוספו לתרגול</p>'; };
+  enrichPending();
   $('#newchat').onclick = () => { const id = chat.sc.id; chat = null; closeSheet(); openChat(id); };
 }
 
@@ -911,6 +979,7 @@ routes.stories = {
       try {
         const s = await ai.makeStory(topic, len);
         s.topic = topic; s.created = Date.now();
+        store.addContext(s.sentences.map((x) => ({ it: x.it, he: x.he, src: 'story' })));
         const all = loadStories(); all.unshift(s); saveStories(all);
         go('#story/0');
       } catch (e) { view().innerHTML = errBox(e) + '<a class="btn ghost" href="#stories">חזרה</a>'; }
@@ -992,6 +1061,7 @@ routes.story = {
       }
     };
     $('#sdone').onclick = () => {
+      enrichPending();
       if (!s.read) { s.read = true; all[+idx || 0] = s; saveStories(all); store.bump('stories'); }
       toast('כל הכבוד! 📚');
       go('#today');
@@ -1048,19 +1118,15 @@ routes.write = {
       try {
         const r = await ai.correctWriting(cur, text);
         store.bump('writing');
+        (r.errors || []).forEach((c) => store.addCustom({ it: c.right, he: c.why_he, ex: r.corrected, src: 'mistake', raw: true, wrong: c.wrong, note: c.why_he }));
+        enrichPending();
         out.innerHTML = `<div class="card">
           <p class="ok">👏 ${esc(r.praise_he)}</p>
           <h4>הטקסט המתוקן</h4><p class="it" dir="ltr">${tappable(r.corrected)} ${spk(r.corrected)}</p>
-          ${r.errors?.length ? `<h4>הטעויות (${r.errors.length})</h4>${r.errors.map((c, j) => `<div class="corr-item"><span class="it strike">${esc(c.wrong)}</span> → <span class="it fix">${esc(c.right)}</span> ${spk(c.right)}<div class="small">${esc(c.why_he)}</div><button class="chip" data-we="${j}">+ לתרגול</button></div>`).join('')}` : '<p class="ok">אין טעויות! 🎉</p>'}
+          ${r.errors?.length ? `<h4>הטעויות (${r.errors.length})</h4>${r.errors.map((c, j) => `<div class="corr-item"><span class="it strike">${esc(c.wrong)}</span> → <span class="it fix">${esc(c.right)}</span> ${spk(c.right)}<div class="small">${esc(c.why_he)}</div><span class="chip ok">✓ נכנס לתרגול</span></div>`).join('')}` : '<p class="ok">אין טעויות! 🎉</p>'}
           <h4>🎯 הדבר הכי חשוב לשפר</h4><p>${esc(r.tip_he)}</p>
           <h4>✨ גרסה טבעית יותר</h4><p class="it" dir="ltr">${tappable(r.better_version)} ${spk(r.better_version)}</p>
           <p class="muted small">טיפ: קראו בקול את הגרסה הטבעית 2–3 פעמים.</p></div>`;
-        out.onclick = (e) => {
-          const b = e.target.closest('[data-we]'); if (!b) return;
-          const c = r.errors[+b.dataset.we];
-          store.addCustom({ it: c.right, he: c.why_he, src: 'mistake' });
-          b.outerHTML = '<span class="chip ok">✓ נוסף</span>';
-        };
       } catch (e) { out.innerHTML = errBox(e); }
     };
   },
@@ -1327,5 +1393,9 @@ setInterval(() => {
 // ================= הפעלה =================
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => { /* ignore */ });
+}
+// סיפורים שנשמרו לפני שהיה מאגר משפטים – מכניסים אותם פעם אחת
+if (!store.ctxLines().length) {
+  loadStories().slice().reverse().forEach((st) => store.addContext((st.sentences || []).map((x) => ({ it: x.it, he: x.he, src: 'story' }))));
 }
 render();

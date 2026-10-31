@@ -9,6 +9,7 @@ const DEFAULTS = {
   custom: [],         // פריטים שנוספו מהשיחות/סיפורים/AI
   unitWords: {},      // יחידות B1–B2: id -> [[it, he, ex, exHe], ...] (נוצרו ע"י ה-AI)
   plan: null,         // { start, days, goal } – תוכנית אינטנסיבית
+  ctxLines: [],       // משפטים שהלומד פגש בסיפורים ובשיחות (החדשים קודם) – משמשים בכרטיסיות
   stats: {},          // 'YYYY-MM-DD' -> { reviews, correct, newWords, chat, stories, writing, minutes }
   settings: {
     apiKey: '',
@@ -42,7 +43,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULTS);
     const s = JSON.parse(raw);
-    return { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) }, usage: { ...DEFAULTS.usage, ...(s.usage || {}) }, unitWords: s.unitWords || {} };
+    return { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) }, usage: { ...DEFAULTS.usage, ...(s.usage || {}) }, unitWords: s.unitWords || {}, ctxLines: s.ctxLines || [] };
   } catch {
     return structuredClone(DEFAULTS);
   }
@@ -99,21 +100,54 @@ export function allItems() {
 }
 export const item = (id) => allItems().get(id);
 
-export function addCustom({ it, he, ex = '', exHe = '', src = 'ai' }) {
+// raw = נאסף מתוך שיחה/סיפור וממתין שהמורה תהפוך אותו לכרטיס נקי (ראו enrichPending באפליקציה)
+export function addCustom({ it, he, ex = '', exHe = '', src = 'ai', raw = false, form = '', wrong = '', note = '' }) {
   it = (it || '').trim(); he = (he || '').trim();
   if (!it || !he) return null;
   const exists = [...allItems().values()].find((x) => x.it.toLowerCase() === it.toLowerCase());
   if (exists) {
-    if (!state.cards[exists.id]) { state.cards[exists.id] = newCard(exists.id); save(); }
+    if (!state.cards[exists.id]) { state.cards[exists.id] = { ...newCard(exists.id), src }; save(); }
     return exists.id;
   }
   const id = `c.${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
-  state.custom.push({ id, it, he, ex, exHe, src, created: Date.now() });
+  state.custom.push({ id, it, he, ex, exHe, src, raw, form, wrong, note, created: Date.now() });
   state.cards[id] = newCard(id);
   itemCache = null;
   save();
   return id;
 }
+
+export const pendingRaw = () => state.custom.filter((c) => c.raw);
+
+// עדכון כרטיס אחרי שהמורה ניקתה אותו. אם יצא כפול של מילה קיימת – מאחדים
+export function updateCustom(id, fields) {
+  const c = state.custom.find((x) => x.id === id);
+  if (!c) return;
+  const it = (fields.it || c.it).trim();
+  const dup = [...allItems().values()].find((x) => x.id !== id && x.it.toLowerCase() === it.toLowerCase());
+  if (dup) {
+    const card = state.cards[id];
+    removeCustom(id);
+    if (!state.cards[dup.id] && card) state.cards[dup.id] = { ...card, id: dup.id };
+    save();
+    return;
+  }
+  Object.assign(c, fields, { it, raw: false });
+  itemCache = null;
+  save();
+}
+
+export function deleteCard(id) { delete state.cards[id]; save(); }
+
+// ---------- משפטים מההקשר של הלומד ----------
+export function addContext(lines) {
+  const have = new Set(state.ctxLines.map((l) => l.it));
+  const fresh = lines.filter((l) => l.it && l.he && l.it.length <= 220 && !have.has(l.it)).map((l) => ({ ...l, t: Date.now() }));
+  if (!fresh.length) return;
+  state.ctxLines = [...fresh.reverse(), ...state.ctxLines].slice(0, 600);
+  save();
+}
+export const ctxLines = () => state.ctxLines;
 
 export function removeCustom(id) {
   state.custom = state.custom.filter((c) => c.id !== id);
@@ -133,8 +167,10 @@ export function dueCards(now = Date.now()) {
 // מילים חדשות לשיעור: קודם כאלה שהמשתמש שמר בעצמו (רלוונטיות אישית), אחר כך לפי סדר הקורס
 export function nextNewItems(n) {
   const out = [];
+  // קודם מה שהלומד פגש בעצמו (תיקונים, מילים שבדק בסיפור/שיחה), אחר כך מילים לפי נושא, ואז הקורס
+  const rank = (id) => ({ mistake: 0, tap: 1, chat: 1, story: 1 }[state.cards[id]?.src || item(id)?.src] ?? 2);
   const pendingCustom = Object.values(state.cards).filter((c) => c.state === 'new' && item(c.id))
-    .sort((a, b) => a.added - b.added);
+    .sort((a, b) => (rank(a.id) - rank(b.id)) || (a.added - b.added));
   for (const c of pendingCustom) { if (out.length >= n) break; out.push(c.id); }
   const focus = state.settings.focusUnit;
   const order = focus ? [UNITS.find((u) => u.id === focus), ...UNITS.filter((u) => u.id !== focus)] : UNITS;

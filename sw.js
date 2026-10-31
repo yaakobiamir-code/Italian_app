@@ -1,5 +1,5 @@
 // Service worker: האפליקציה נטענת ועובדת גם בלי אינטרנט (התרגול היומי). AI דורש חיבור.
-const VERSION = 'italiano-v2';
+const VERSION = 'italiano-v3';
 const FILES = [
   './', 'index.html', 'help.html', 'css/style.css', 'manifest.webmanifest',
   'js/app.js', 'js/data.js', 'js/srs.js', 'js/store.js', 'js/ai.js', 'js/speech.js',
